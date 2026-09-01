@@ -1,0 +1,51 @@
+[project]
+name = "cvme"
+version = "0.1.0"
+description = "Typeset resumes and cover letters from markdown."
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+dependencies = [
+    "typer>=0.15",
+    "pydantic>=2.9",
+    "markdown-it-py>=3.0",
+    "typst>=0.13",
+    "pyyaml>=6.0",
+    "pypdf>=5.0",
+    "rich>=13.0",
+]
+
+[project.scripts]
+cvme = "cvme.cli.app:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=6.0",
+    "ruff>=0.9",
+    "pyrefly>=1.0",
+    "pdfplumber>=0.11",
+    "fonttools[woff]>=4.55",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cvme"]
+
+[tool.ruff]
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.pyrefly]
+project-includes = ["src", "tests"]
+python-version = "3.13"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
