@@ -1,0 +1,58 @@
+# Prose rules for generated (and hand-written) documents.
+#
+# `pattern` is a case-insensitive regular expression. `scope` is "all" or
+# "prose", where prose excludes labelled list lines like "- **Languages**: ..."
+# whose commas are a list, not rhetoric.
+
+[[rule]]
+id = "em-dash"
+pattern = "—"
+message = "em dash"
+suggestion = "a comma, a colon, or two sentences"
+severity = "error"
+
+[[rule]]
+id = "not-x-but-y"
+pattern = "\\b(?:not just|isn't just|is not just|not merely|isn't merely|more than just|not only)\\b"
+message = "the 'not just X, it's Y' construction"
+suggestion = "state what it is, and stop"
+severity = "error"
+
+[[rule]]
+id = "letter-opener"
+pattern = "^\\s*I am writing to\\b"
+message = "opening a letter by announcing that you are writing"
+suggestion = "open with the specific thing that matches this role"
+severity = "error"
+
+[[rule]]
+id = "weak-opener"
+pattern = "^\\s*[-*+]\\s+(?:Responsible for|Helped (?:with|to)|Worked on|Assisted (?:with|in)|Tasked with)\\b"
+message = "bullet opens with a responsibility rather than an action"
+suggestion = "lead with what you did and what changed"
+severity = "warning"
+
+[[rule]]
+id = "triad"
+pattern = "\\b\\w+ing\\b,\\s+\\b\\w+ing\\b,?\\s+and\\s+\\b\\w+ing\\b"
+message = "rule-of-three phrasing"
+suggestion = "two items, or four; three reads as cadence"
+severity = "warning"
+scope = "prose"
+
+# Phrases that mark generated prose. Each becomes a rule of its own.
+[phrases]
+severity = "error"
+words = [
+  "leverage", "utilize", "utilise", "spearhead", "passionate about",
+  "proven track record", "seamless", "seamlessly", "cutting-edge",
+  "delve", "tapestry", "testament to", "in today's fast-paced",
+  "synergy", "best-in-class", "thought leader", "game-changer",
+  "move the needle", "wheelhouse", "circle back", "deep dive",
+  "at the end of the day", "it's worth noting", "navigate the complexities",
+  "unlock the potential", "empower", "holistic", "myriad",
+]
+
+[phrases.soft]
+severity = "warning"
+words = ["robust", "innovative", "dynamic", "world-class", "extensive experience"]

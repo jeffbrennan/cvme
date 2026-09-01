@@ -13,6 +13,7 @@ from rich.console import Console
 from cvme import __version__
 from cvme.cli.init import init
 from cvme.cli.render import render
+from cvme.cli.verify import verify
 from cvme.errors import CvmeError
 
 app = typer.Typer(
@@ -46,6 +47,7 @@ def handled[F: Callable[..., Any]](command: F) -> F:
 
 app.command()(handled(init))
 app.command()(handled(render))
+app.command()(handled(verify))
 
 
 @app.command()

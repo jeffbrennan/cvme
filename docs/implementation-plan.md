@@ -578,9 +578,10 @@ parser feeding that template, rather than the template itself.
    the recommendation: `on_overflow` is a tri-state (`fit`, `warn`, `error`),
    the letter preset uses `error`, and the diagnostic reports paragraph and
    word counts. Say if you would rather letters tightened after all.
-3. **`~` in metrics.** `~$100k/month` is honest but the verifier must decide
-   whether `$98k` in the corpus licenses `~$100k` in output. Propose: exact match
-   only, and write the approximation into the corpus if you want to claim it.
+3. ~~`~` in metrics.~~ **Implemented as proposed**: matching is on the
+   normalised numeric value, so `$98k` does not license `$100k`. The `~` is not
+   part of the value, so `~$100k` and `$100k` do compare equal; write the
+   approximation into the corpus and it verifies.
 4. **Agent default.** `codex` assumed. Flip in `cvme.toml` if `opencode` is your
    daily driver.
 5. **Repo scope.** Plan assumes `cvme` is the tool and your documents live in a

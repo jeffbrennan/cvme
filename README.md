@@ -20,7 +20,7 @@ Under construction, milestone by milestone. See
 | M1 — markdown grammar, parser, Typst renderer, `cvme render` | done |
 | M2 — page autofit, machine-readable output, cover letters | done |
 | M2b — project config, `cvme init` | done |
-| M3 — fact corpus and the `cvme verify` guardrails | next |
+| M3 — fact corpus and the `cvme verify` guardrails | done |
 | M4 — job description scraping | deferred |
 | M5 — agent-driven tailoring | deferred |
 
@@ -49,6 +49,15 @@ uv run cvme render resume
 uv run cvme render cover_letter
 ```
 
+Verification checks that every number is sourced and the prose does not read
+as generated:
+
+```bash
+uv run cvme verify              # every configured document
+uv run cvme verify resume
+uv run cvme verify draft.md --facts facts/metrics.md --json
+```
+
 Any markdown file works without a project:
 
 ```bash
@@ -68,3 +77,23 @@ for how the output reads to a parser.
 
 The authoring grammar is [`src/cvme/md/GRAMMAR.md`](src/cvme/md/GRAMMAR.md).
 `tests/fixtures/resume.md` is a complete worked example.
+
+## Guardrails
+
+`cvme verify` exists because a prompt asking a model not to invent numbers
+fails silently, and you find out after you have applied.
+
+- **Every quantitative claim must be sourced.** Numbers are extracted from the
+  document and normalised, so `100k`, `100,000` and `$100K` compare as one
+  value, then matched against `facts/metrics.md`, `facts/skills.md` and your
+  base resume. Matching is exact: `$98k` in the corpus does not license
+  `$100k` in the output, because rounding up is the failure this catches. A
+  bullet may cite its source with `<!-- fact: id -->`, and is then checked
+  against that fact specifically.
+- **Prose is linted for generated register.** Em dashes, the "not just X, it's
+  Y" construction, a list of stock phrases, weak bullet openers, and
+  rule-of-three cadence. Rules live in
+  [`src/cvme/verify/rules.toml`](src/cvme/verify/rules.toml).
+
+Exit codes are distinct so a script can tell failures apart: `1` bad input,
+`2` page budget, `3` verification.
