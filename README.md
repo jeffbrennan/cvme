@@ -21,7 +21,7 @@ Under construction, milestone by milestone. See
 | M2 — page autofit, machine-readable output, cover letters | done |
 | M2b — project config, `cvme init` | done |
 | M3 — fact corpus and the `cvme verify` guardrails | done |
-| M4 — job description scraping | deferred |
+| M4 — job capture: ATS APIs, JSON-LD, manual paths | partial (offline tiers) |
 | M5 — agent-driven tailoring | deferred |
 
 ## Design
@@ -47,6 +47,14 @@ output lands in the configured directory:
 ```bash
 uv run cvme render resume
 uv run cvme render cover_letter
+```
+
+Capture a posting:
+
+```bash
+uv run cvme job fetch https://boards.greenhouse.io/acme/jobs/4012345
+uv run cvme job add --html saved.html --url https://www.linkedin.com/jobs/view/123
+pbpaste | uv run cvme job add --stdin --url https://x.example/1 --title T --company C
 ```
 
 Verification checks that every number is sourced and the prose does not read

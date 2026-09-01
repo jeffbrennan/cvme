@@ -1,0 +1,26 @@
+{
+  "apiVersion": "1",
+  "name": "Northwind Analytics",
+  "jobs": [
+    {
+      "id": "aaaabbbbccccddddeeeeffff00001111",
+      "title": "Analytics Engineer",
+      "location": "Remote",
+      "employmentType": "FullTime",
+      "isRemote": true,
+      "publishedAt": "2026-07-02T00:00:00Z",
+      "jobUrl": "https://jobs.ashbyhq.com/northwind/aaaabbbbccccddddeeeeffff00001111",
+      "descriptionHtml": "<p>Analytics engineering at Northwind.</p>"
+    },
+    {
+      "id": "11112222333344445555666677778888",
+      "title": "Staff Data Engineer",
+      "location": "Boston, MA",
+      "employmentType": "FullTime",
+      "isRemote": false,
+      "publishedAt": "2026-08-14T00:00:00Z",
+      "jobUrl": "https://jobs.ashbyhq.com/northwind/11112222333344445555666677778888",
+      "descriptionHtml": "<p>We are hiring a <strong>Staff Data Engineer</strong>.</p><ul><li>Own ingestion</li></ul>"
+    }
+  ]
+}

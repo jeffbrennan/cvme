@@ -2,19 +2,16 @@
 
 from __future__ import annotations
 
-import functools
 import sys
-from collections.abc import Callable
-from typing import Any, cast
 
 import typer
-from rich.console import Console
 
 from cvme import __version__
+from cvme.cli.errors import err_console, handled
 from cvme.cli.init import init
+from cvme.cli.job import app as job_app
 from cvme.cli.render import render
 from cvme.cli.verify import verify
-from cvme.errors import CvmeError
 
 app = typer.Typer(
     name="cvme",
@@ -22,32 +19,10 @@ app = typer.Typer(
     no_args_is_help=True,
     add_completion=False,
 )
-err_console = Console(stderr=True)
-
-
-def handled[F: Callable[..., Any]](command: F) -> F:
-    """Report expected failures as a message and an exit code, not a traceback.
-
-    Applied per command rather than around ``app()`` so the behaviour holds
-    however the CLI is entered, including from tests.
-    """
-
-    @functools.wraps(command)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        try:
-            return command(*args, **kwargs)
-        except CvmeError as exc:
-            err_console.print(f"[red]error:[/red] {exc}")
-            raise typer.Exit(exc.exit_code) from exc
-
-    # functools.wraps preserves the signature typer introspects, but the
-    # wrapper's own type is not F.
-    return cast(F, wrapper)
-
-
 app.command()(handled(init))
 app.command()(handled(render))
 app.command()(handled(verify))
+app.add_typer(job_app, name="job")
 
 
 @app.command()

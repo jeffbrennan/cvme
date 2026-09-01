@@ -1,0 +1,11 @@
+{
+  "id": 4012345,
+  "title": "Staff Data Engineer",
+  "updated_at": "2026-08-14T10:02:11-04:00",
+  "requisition_id": "R-238",
+  "absolute_url": "https://boards.greenhouse.io/northwind/jobs/4012345",
+  "location": { "name": "Boston, MA" },
+  "company": { "id": 1, "name": "Northwind Analytics" },
+  "departments": [{ "id": 1, "name": "Engineering" }],
+  "content": "&lt;p&gt;We are hiring a &lt;strong&gt;Staff Data Engineer&lt;/strong&gt;.&lt;/p&gt;&lt;h3&gt;What you will do&lt;/h3&gt;&lt;ul&gt;&lt;li&gt;Own ingestion&lt;/li&gt;&lt;li&gt;Build orchestration&lt;/li&gt;&lt;/ul&gt;"
+}

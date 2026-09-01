@@ -40,6 +40,7 @@ class ProjectConfig(BaseModel):
     model_config = {"extra": "forbid"}
 
     output_dir: Path = Path("out")
+    jobs_dir: Path = Path("jobs")
     facts: list[Path] = Field(default_factory=list)
 
 
@@ -90,6 +91,7 @@ def load_config(path: Path) -> Config:
         raise ConfigError(f"{path}: {exc}") from exc
 
     config.project.output_dir = _resolve(root, config.project.output_dir)
+    config.project.jobs_dir = _resolve(root, config.project.jobs_dir)
     config.project.facts = [_resolve(root, f) for f in config.project.facts]
     for document in config.documents.values():
         document.path = _resolve(root, document.path)

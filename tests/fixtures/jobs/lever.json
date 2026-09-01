@@ -1,0 +1,13 @@
+{
+  "id": "0d1b2c3d-4e5f-6789-abcd-ef0123456789",
+  "text": "Staff Data Engineer",
+  "categories": { "commitment": "Full-time", "location": "Boston, MA", "team": "Data" },
+  "description": "<p>Northwind runs a large telemetry platform.</p>",
+  "descriptionPlain": "Northwind runs a large telemetry platform.",
+  "lists": [
+    { "text": "What you will do", "content": "<ul><li>Own ingestion</li><li>Build orchestration</li></ul>" }
+  ],
+  "additional": "<p>We are an equal opportunity employer.</p>",
+  "hostedUrl": "https://jobs.lever.co/northwind/0d1b2c3d-4e5f-6789-abcd-ef0123456789",
+  "applyUrl": "https://jobs.lever.co/northwind/0d1b2c3d-4e5f-6789-abcd-ef0123456789/apply"
+}
