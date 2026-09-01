@@ -22,7 +22,7 @@ def test_the_long_fixture_really_does_overflow(
     long_source: str, tmp_path: Path
 ) -> None:
     """Guards the other tests: if this ever fits, they stop proving anything."""
-    style = resolve("standard", {"autofit": False})
+    style = resolve("standard", {"on_overflow": "warn"})
     result = fit(parse(long_source), style, output=tmp_path / "o.pdf")
     assert result.pages > 1
     assert result.applied == []

@@ -574,9 +574,10 @@ parser feeding that template, rather than the template itself.
    32.4pt where the rest use 32.4pt from a different origin) that look like Word
    artifacts rather than intent. The template normalises them. Say if any were
    deliberate.
-2. **Cover-letter length control.** Resumes autofit by tightening. Letters
-   cannot — shrinking a letter to fit is worse than cutting a paragraph. Propose:
-   letters *fail* over budget with a word-count delta and let you cut. Confirm.
+2. ~~Cover-letter length control.~~ **Implemented as proposed**, since it was
+   the recommendation: `on_overflow` is a tri-state (`fit`, `warn`, `error`),
+   the letter preset uses `error`, and the diagnostic reports paragraph and
+   word counts. Say if you would rather letters tightened after all.
 3. **`~` in metrics.** `~$100k/month` is honest but the verifier must decide
    whether `$98k` in the corpus licenses `~$100k` in output. Propose: exact match
    only, and write the approximation into the corpus if you want to claim it.

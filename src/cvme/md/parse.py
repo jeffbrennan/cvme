@@ -84,12 +84,22 @@ def _document_fields(front: dict[str, Any], path: str | None) -> dict[str, Any]:
                 path=path,
             )
     meta = {
-        str(k): str(v)
+        str(k): _meta_markup(str(v))
         for k, v in front.items()
         if k not in {"name", "contact"} and v is not None
     }
     name = il.to_typst(str(front.get("name", "")))[0]
     return {"name": name, "contact": contact, "meta": meta}
+
+
+def _meta_markup(value: str) -> str:
+    """Convert a frontmatter value to markup, one line at a time.
+
+    Line by line because inline markdown folds a newline into a space, and a
+    multi-line value -- a letter's recipient block -- needs its line structure
+    to survive.
+    """
+    return "\n".join(il.to_typst(line)[0] for line in value.splitlines())
 
 
 def _entry_line(raw: str, *, split_org: bool) -> EntryLine:
@@ -112,11 +122,15 @@ def _parse_body(doc: Document, body: str, path: str | None) -> None:
     i = 0
 
     def target() -> list[Block]:
+        nonlocal section
         if entry is not None:
             return entry.blocks
-        if section is not None:
-            return section.blocks
-        raise ParseError("content appears before the first '## Section'", path=path)
+        if section is None:
+            # Prose before any heading opens an untitled section. A cover
+            # letter is exactly this: a body with no sections at all.
+            section = Section(title="")
+            doc.sections.append(section)
+        return section.blocks
 
     while i < len(tokens):
         token = tokens[i]

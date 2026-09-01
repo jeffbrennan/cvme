@@ -1,0 +1,15 @@
+# Cover letters.
+#
+# autofit is off by design. A resume tightens invisibly, but a letter cannot:
+# shrinking prose to fit is worse than cutting a paragraph, and the author is
+# the only one who can decide which paragraph. Over budget is a hard failure
+# with a word count, not a silent squeeze.
+[style]
+paper = "us-letter"
+margin_x = 72.0          # 1.0in, a little more generous than the resume
+margin_y = 54.0          # 0.75in
+body_size = 11.0
+leading = 6.4
+name_size = 19.5
+max_pages = 1
+on_overflow = "error"

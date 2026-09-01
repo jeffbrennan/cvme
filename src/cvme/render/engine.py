@@ -37,9 +37,11 @@ def document_payload(doc: Document) -> dict[str, Any]:
     payload = doc.model_dump()
     # PDF metadata is literal text, so recover it from the markup.
     payload["name_plain"] = to_plain(doc.name)
-    payload["title"] = doc.meta.get("title") or payload["name_plain"]
+    payload["title"] = to_plain(doc.meta.get("title", "")) or payload["name_plain"]
     payload["keywords"] = [
-        k.strip() for k in doc.meta.get("keywords", "").split(",") if k.strip()
+        k.strip()
+        for k in to_plain(doc.meta.get("keywords", "")).split(",")
+        if k.strip()
     ]
     return payload
 
@@ -50,12 +52,22 @@ def build_sources(
     """Build the virtual filesystem handed to the compiler."""
     path = TEMPLATE_DIR / f"{template}.typ"
     if not path.exists():
-        raise RenderError(f"no template named '{template}'")
-    return {
+        available = ", ".join(
+            sorted(
+                p.stem for p in TEMPLATE_DIR.glob("*.typ") if not p.stem.startswith("_")
+            )
+        )
+        raise RenderError(f"no template named '{template}'; available: {available}")
+    sources = {
         "main.typ": path.read_bytes(),
         "document.json": json.dumps(document_payload(doc)).encode(),
         "style.json": json.dumps(style.dump()).encode(),
     }
+    # Every template file goes into the virtual filesystem so that templates
+    # can import shared helpers from _common.typ.
+    for extra in TEMPLATE_DIR.glob("*.typ"):
+        sources.setdefault(extra.name, extra.read_bytes())
+    return sources
 
 
 def compile_document(

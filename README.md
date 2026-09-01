@@ -16,7 +16,7 @@ Under construction, milestone by milestone. See
 |---|---|
 | M0 — scaffold, tooling, CI, `cvme doctor` | done |
 | M1 — markdown grammar, parser, Typst renderer, `cvme render` | done |
-| M2 — page autofit, machine-readable output | done |
+| M2 — page autofit, machine-readable output, cover letters | done |
 | M3 — fact corpus and the `cvme verify` guardrails | next |
 | M4 — job description scraping | deferred |
 | M5 — agent-driven tailoring | deferred |
@@ -44,6 +44,7 @@ uv run cvme render resume.md --set leading=6.0 --set margin_x=50
 uv run cvme render resume.md --watch
 uv run cvme render resume.md --max-pages 1        # tighten until it fits
 uv run cvme render resume.md --pdf-standard ua-1  # accessibility-tagged
+uv run cvme render cover_letter.md --template cover_letter --style letter
 ```
 
 `--max-pages` is enforced: the renderer walks a bounded ladder of density

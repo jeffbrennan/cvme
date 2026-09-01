@@ -67,7 +67,7 @@ def render(
     ] = None,
     no_autofit: Annotated[
         bool,
-        typer.Option("--no-autofit", help="Render as authored; only warn if over."),
+        typer.Option("--no-autofit", help="Render as authored; warn if over budget."),
     ] = False,
     pdf_standard: Annotated[
         str | None,
@@ -87,7 +87,7 @@ def render(
     if pdf_standard is not None:
         overrides["pdf_standard"] = pdf_standard
     if no_autofit:
-        overrides["autofit"] = False
+        overrides["on_overflow"] = "warn"
     resolved = resolve(style, overrides)
 
     def once() -> None:
@@ -99,7 +99,7 @@ def render(
         elif result.pages > resolved.max_pages:
             typer.echo(
                 f"  warning: {result.pages} pages exceeds the budget of "
-                f"{resolved.max_pages}; autofit is off"
+                f"{resolved.max_pages}"
             )
         if png:
             stem = out.with_suffix("")

@@ -21,7 +21,7 @@ from pypdf import PdfReader
 
 from cvme.errors import FitError
 from cvme.md.inline import to_plain
-from cvme.models import BulletList, Document
+from cvme.models import Block, BulletList, Document, Paragraph
 from cvme.style.schema import Style
 
 #: Hard stop on ladder iterations, so a pathological style cannot spin.
@@ -108,8 +108,12 @@ def fit(
 
     compile_document(doc, style, output=output, template=template)
     pages = page_count(output)
-    if pages <= style.max_pages or not style.autofit:
+    if pages <= style.max_pages:
         return FitResult(style, pages, [])
+    if style.on_overflow == "warn":
+        return FitResult(style, pages, [])
+    if style.on_overflow == "error":
+        raise FitError(_diagnose(doc, pages, style.max_pages, tightened=False))
 
     applied: list[str] = []
     current = style
@@ -129,7 +133,7 @@ def fit(
         if not progressed:
             break
 
-    raise FitError(_diagnose(doc, pages, style.max_pages))
+    raise FitError(_diagnose(doc, pages, style.max_pages, tightened=True))
 
 
 def _summarise(applied: list[str]) -> list[str]:
@@ -140,35 +144,59 @@ def _summarise(applied: list[str]) -> list[str]:
     return [n if c == 1 else f"{n} x{c}" for n, c in counts.items()]
 
 
-def _diagnose(doc: Document, pages: int, budget: int) -> str:
+def _diagnose(doc: Document, pages: int, budget: int, *, tightened: bool) -> str:
     """Explain what to cut, rather than just reporting failure."""
     weights: list[tuple[int, str]] = []
-    longest: list[tuple[int, str]] = []
-    for section in doc.sections:
-        size = 0
-        for entry in section.entries:
-            for block in entry.blocks:
-                if isinstance(block, BulletList):
-                    size += len(block.items)
-                    longest.extend((len(b.text), b.text) for b in block.items)
-        for block in section.blocks:
+    bullets: list[tuple[int, str]] = []
+    paragraphs: list[tuple[int, str]] = []
+
+    def scan(blocks: list[Block]) -> int:
+        count = 0
+        for block in blocks:
             if isinstance(block, BulletList):
-                size += len(block.items)
-                longest.extend((len(b.text), b.text) for b in block.items)
+                count += len(block.items)
+                bullets.extend((len(b.text), b.text) for b in block.items)
+            elif isinstance(block, Paragraph):
+                paragraphs.append((len(block.text.split()), block.text))
+        return count
+
+    for section in doc.sections:
+        size = scan(section.blocks)
+        for entry in section.entries:
+            size += scan(entry.blocks)
         weights.append((size, section.title))
 
     weights.sort(reverse=True)
-    longest.sort(reverse=True)
-    lines = [
-        f"document needs {pages} pages but the budget is {budget}, "
-        "and every density step has reached its floor.",
-        "",
-        "largest sections: "
-        + ", ".join(f"{title} ({size} bullets)" for size, title in weights[:3] if size),
-        "",
-        "longest bullets, as candidates to cut or shorten:",
-    ]
-    lines += [f"  - {to_plain(text)[:96]}" for _, text in longest[:3]]
-    lines.append("")
-    lines.append("or raise the budget with --max-pages, or use --style compact.")
+    bullets.sort(reverse=True)
+    paragraphs.sort(reverse=True)
+
+    reason = (
+        "and every density step has reached its floor"
+        if tightened
+        else "and this document type does not tighten to fit"
+    )
+    lines = [f"document needs {pages} pages but the budget is {budget}, {reason}."]
+
+    if bullets:
+        named = ", ".join(
+            f"{title or 'untitled'} ({size} bullets)"
+            for size, title in weights[:3]
+            if size
+        )
+        lines += ["", f"largest sections: {named}", "", "longest bullets to cut:"]
+        lines += [f"  - {to_plain(text)[:96]}" for _, text in bullets[:3]]
+    if paragraphs:
+        total = sum(words for words, _ in paragraphs)
+        lines += [
+            "",
+            f"{len(paragraphs)} paragraphs, {total} words. Longest:",
+        ]
+        lines += [
+            f"  - {words} words: {to_plain(text)[:72]}..."
+            for words, text in paragraphs[:3]
+        ]
+
+    lines += ["", "raise the budget with --max-pages, or shorten the document."]
+    if tightened:
+        lines[-1] = "raise the budget with --max-pages, or use --style compact."
     return "\n".join(lines)

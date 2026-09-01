@@ -72,9 +72,11 @@ def test_fact_comments_are_stripped_and_collected() -> None:
     assert doc.facts() == ["m-thing"]
 
 
-def test_content_before_a_section_is_an_error() -> None:
-    with pytest.raises(ParseError, match="before the first"):
-        parse("Some prose with no section header.\n")
+def test_prose_before_any_heading_opens_an_untitled_section() -> None:
+    """A cover letter is a body with no sections at all."""
+    doc = parse("First paragraph.\n\nSecond paragraph.\n")
+    assert [s.title for s in doc.sections] == [""]
+    assert len(doc.sections[0].blocks) == 2
 
 
 def test_entry_before_a_section_is_an_error() -> None:

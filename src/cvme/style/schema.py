@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -65,13 +65,24 @@ class Style(BaseModel):
     marker_indent: float = 18.0
     body_indent: float = 10.9
 
+    # letters
+    letter_gap: float = 24.0  # letterhead to the date line
+    letter_block_gap: float = 20.0  # between date, recipient and salutation
+    paragraph_gap: float = 13.4  # between body paragraphs
+    signature_gap: float = 26.0  # room to sign between closing and name
+
     # output
     pdf_standard: str = ""
     lang: str = "en"
 
-    # fitting
+    # What to do when the document exceeds max_pages.
+    #   fit   -- tighten along the density ladder until it fits (resumes)
+    #   warn  -- render as authored and report the overage
+    #   error -- refuse, with a diagnostic (letters: prose cannot be squeezed
+    #            without making it worse, and only the author can decide which
+    #            paragraph goes)
     max_pages: int = 1
-    autofit: bool = True
+    on_overflow: Literal["fit", "warn", "error"] = "fit"
 
     def dump(self) -> dict[str, Any]:
         return self.model_dump()
