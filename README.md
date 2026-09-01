@@ -4,7 +4,9 @@ Typeset resumes and cover letters from markdown.
 
 ```bash
 uv sync
-uv run cvme doctor
+uv run cvme doctor          # check the rendering environment
+uv run cvme init my-docs    # scaffold a project to fill in
+cd my-docs && uv run cvme render resume
 ```
 
 ## Status
@@ -17,6 +19,7 @@ Under construction, milestone by milestone. See
 | M0 — scaffold, tooling, CI, `cvme doctor` | done |
 | M1 — markdown grammar, parser, Typst renderer, `cvme render` | done |
 | M2 — page autofit, machine-readable output, cover letters | done |
+| M2b — project config, `cvme init` | done |
 | M3 — fact corpus and the `cvme verify` guardrails | next |
 | M4 — job description scraping | deferred |
 | M5 — agent-driven tailoring | deferred |
@@ -36,6 +39,17 @@ Fonts are vendored and system fonts are disabled, and the PDF timestamp is
 pinned, so the same source produces byte-identical output everywhere.
 
 ## Usage
+
+A project is a directory with a `cvme.toml`, found by walking up from wherever
+you run the command. Documents are named there, so you render by name and the
+output lands in the configured directory:
+
+```bash
+uv run cvme render resume
+uv run cvme render cover_letter
+```
+
+Any markdown file works without a project:
 
 ```bash
 uv run cvme render path/to/resume.md -o out/resume.pdf

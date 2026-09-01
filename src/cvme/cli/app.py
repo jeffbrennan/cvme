@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import functools
 import sys
+from collections.abc import Callable
+from typing import Any, cast
 
 import typer
 from rich.console import Console
 
 from cvme import __version__
+from cvme.cli.init import init
 from cvme.cli.render import render
 from cvme.errors import CvmeError
 
@@ -20,7 +24,28 @@ app = typer.Typer(
 err_console = Console(stderr=True)
 
 
-app.command()(render)
+def handled[F: Callable[..., Any]](command: F) -> F:
+    """Report expected failures as a message and an exit code, not a traceback.
+
+    Applied per command rather than around ``app()`` so the behaviour holds
+    however the CLI is entered, including from tests.
+    """
+
+    @functools.wraps(command)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return command(*args, **kwargs)
+        except CvmeError as exc:
+            err_console.print(f"[red]error:[/red] {exc}")
+            raise typer.Exit(exc.exit_code) from exc
+
+    # functools.wraps preserves the signature typer introspects, but the
+    # wrapper's own type is not F.
+    return cast(F, wrapper)
+
+
+app.command()(handled(init))
+app.command()(handled(render))
 
 
 @app.command()
@@ -30,6 +55,7 @@ def version() -> None:
 
 
 @app.command()
+@handled
 def doctor() -> None:
     """Check that the rendering environment is usable."""
     from cvme.render.fonts import font_report
@@ -56,12 +82,7 @@ def doctor() -> None:
 
 
 def main() -> None:
-    """Run the CLI, reporting expected failures without a traceback."""
-    try:
-        app()
-    except CvmeError as exc:
-        err_console.print(f"[red]error:[/red] {exc}")
-        raise SystemExit(exc.exit_code) from exc
+    app()
 
 
 if __name__ == "__main__":

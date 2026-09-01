@@ -1,0 +1,22 @@
+# cvme project configuration.
+#
+# Paths resolve relative to this file, so the CLI works from anywhere inside
+# the project. Style resolution layers: the named preset, then this document's
+# [overrides] table, then --set on the command line.
+
+[project]
+output_dir = "out"
+facts = ["facts/skills.md", "facts/metrics.md"]
+
+[documents.resume]
+path = "base/resume.md"
+template = "resume"
+style = "standard"
+
+[documents.resume.overrides]
+max_pages = 1
+
+[documents.cover_letter]
+path = "base/cover_letter.md"
+template = "cover_letter"
+style = "letter"

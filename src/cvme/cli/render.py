@@ -8,30 +8,28 @@ from typing import Annotated, Any
 
 import typer
 
+from cvme.config import Config, DocumentConfig, find_config, load_config
 from cvme.errors import ConfigError
 from cvme.md.parse import parse_file
 from cvme.render.engine import compile_document
 from cvme.render.fit import fit
-from cvme.style.schema import resolve
+from cvme.style.schema import Style, resolve
 
 
 def _overrides(pairs: list[str]) -> dict[str, Any]:
-    """Parse ``--set key=value`` pairs, coercing to the field's type."""
-    from cvme.style.schema import Style
-
+    """Parse ``--set key=value`` pairs, coercing to each field's type."""
     fields = Style.model_fields
     out: dict[str, Any] = {}
     for pair in pairs:
         if "=" not in pair:
             raise ConfigError(f"--set expects key=value, got '{pair}'")
-        key, raw = pair.split("=", 1)
-        key = key.strip()
+        key, raw = (part.strip() for part in pair.split("=", 1))
         if key not in fields:
             raise ConfigError(f"unknown style key '{key}'")
         annotation = fields[key].annotation
         try:
             if annotation is bool:
-                out[key] = raw.strip().lower() in {"1", "true", "yes", "on"}
+                out[key] = raw.lower() in {"1", "true", "yes", "on"}
             elif annotation is int:
                 out[key] = int(raw)
             elif annotation is float:
@@ -43,18 +41,44 @@ def _overrides(pairs: list[str]) -> dict[str, Any]:
     return out
 
 
+def _select(
+    target: str | None, config: Config | None
+) -> tuple[str | None, DocumentConfig]:
+    """Resolve a target to a document.
+
+    A target that names an existing file is taken as a path; otherwise it is
+    looked up as a document name in cvme.toml. Checking the filesystem first
+    keeps the common case unambiguous.
+    """
+    if target is None:
+        if config is None:
+            raise ConfigError("give a file to render, or run 'cvme init' first")
+        return config.sole_document()
+    if Path(target).is_file():
+        return None, DocumentConfig(path=Path(target))
+    if config is not None:
+        return target, config.document(target)
+    raise ConfigError(f"no such file: {target}")
+
+
 def render(
-    source: Annotated[Path, typer.Argument(help="Markdown document to typeset.")],
+    target: Annotated[
+        str | None,
+        typer.Argument(help="A markdown file, or a document name from cvme.toml."),
+    ] = None,
     output: Annotated[
-        Path | None,
-        typer.Option("--output", "-o", help="Output path. Defaults to <source>.pdf."),
+        Path | None, typer.Option("--output", "-o", help="Output path.")
     ] = None,
     style: Annotated[
-        str, typer.Option("--style", help="Style preset: standard, compact, airy.")
-    ] = "standard",
+        str | None,
+        typer.Option("--style", help="Preset: standard, compact, airy, letter."),
+    ] = None,
     template: Annotated[
-        str, typer.Option("--template", help="Template name.")
-    ] = "resume",
+        str | None, typer.Option("--template", help="Template name.")
+    ] = None,
+    config_path: Annotated[
+        Path | None, typer.Option("--config", help="Path to cvme.toml.")
+    ] = None,
     png: Annotated[
         bool, typer.Option("--png", help="Also write a PNG per page, for eyeballing.")
     ] = False,
@@ -78,21 +102,37 @@ def render(
     ] = False,
 ) -> None:
     """Typeset a markdown document as a PDF."""
-    if not source.exists():
+    found = config_path or find_config()
+    if config_path is not None and not config_path.is_file():
+        raise ConfigError(f"no such config file: {config_path}")
+    config = load_config(found) if found else None
+
+    name, document = _select(target, config)
+    source = document.path
+    if not source.is_file():
         raise ConfigError(f"no such file: {source}")
-    out = output or source.with_suffix(".pdf")
-    overrides = _overrides(set_ or [])
+
+    overrides = dict(document.overrides)
+    overrides.update(_overrides(set_ or []))
     if max_pages is not None:
         overrides["max_pages"] = max_pages
     if pdf_standard is not None:
         overrides["pdf_standard"] = pdf_standard
     if no_autofit:
         overrides["on_overflow"] = "warn"
-    resolved = resolve(style, overrides)
+    resolved = resolve(style or document.style, overrides)
+    chosen_template = template or document.template
+
+    if output is not None:
+        out = output
+    elif name is not None and config is not None:
+        out = config.project.output_dir / f"{name}.pdf"
+    else:
+        out = source.with_suffix(".pdf")
 
     def once() -> None:
         doc = parse_file(source)
-        result = fit(doc, resolved, output=out, template=template)
+        result = fit(doc, resolved, output=out, template=chosen_template)
         typer.echo(f"wrote {out} ({result.pages} page{'s' * (result.pages != 1)})")
         if result.applied:
             typer.echo(f"  tightened to fit: {', '.join(result.applied)}")
@@ -107,7 +147,7 @@ def render(
                 doc,
                 result.style,
                 output=Path(f"{stem}_{{n}}.png"),
-                template=template,
+                template=chosen_template,
                 fmt="png",
                 ppi=110,
             )
