@@ -346,6 +346,11 @@ cvme render base/resume.md --png            # for quick visual diffing
 
 ## 6. Scraping (Milestone 4)
 
+> **Superseded in part.** Research into the existing libraries changed this
+> section's conclusions, in particular that the anonymous LinkedIn HTTP tier
+> is probably no longer viable. See [job-sources.md](job-sources.md) for the
+> evidence and the revised tier ladder.
+
 ### 6.1 Tier ladder
 
 Each site gets an ordered list of strategies; the first that yields a valid
