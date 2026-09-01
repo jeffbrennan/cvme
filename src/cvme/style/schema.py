@@ -54,11 +54,20 @@ class Style(BaseModel):
     date_size: float = 10.0
     role_sep: str = " – "  # en dash, as in the reference layout
 
-    # bullets
-    marker_size: float = 3.2
-    marker_baseline: float = -0.5
+    # bullets. marker_glyph is a real character so that it survives text
+    # extraction; set it to "" to draw a filled square instead.
+    marker_glyph: str = "\u2022"
+    marker_size: float = 7.0
+    # Zero for a glyph marker: U+2022 is already optically centred, and any
+    # shift puts the marker on its own baseline, which splits the line in
+    # extracted text. The drawn-box marker wants about -0.5.
+    marker_baseline: float = 0.0
     marker_indent: float = 18.0
-    body_indent: float = 11.2
+    body_indent: float = 10.9
+
+    # output
+    pdf_standard: str = ""
+    lang: str = "en"
 
     # fitting
     max_pages: int = 1

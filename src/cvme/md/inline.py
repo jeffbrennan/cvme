@@ -79,6 +79,15 @@ def render_tokens(inline: Token | None) -> str:
     return _render(inline.children or []).strip() if inline is not None else ""
 
 
+_MARKUP_OPEN = re.compile(r'#(?:strong|emph)\[|#link\("[^"]*"\)\[')
+
+
+def to_plain(markup: str) -> str:
+    """Recover readable text from Typst markup, for diagnostics and metadata."""
+    text = _MARKUP_OPEN.sub("", markup).replace("]", "")
+    return re.sub(r"\\(.)", r"\1", text).replace("`", "")
+
+
 def split_pipe(source: str) -> tuple[str, str]:
     """Split on the first unescaped ``|`` into left and right halves."""
     return _split(source, "|")

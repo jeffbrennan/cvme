@@ -48,17 +48,27 @@ def test_dates_are_flush_to_the_right_margin(geo, standard: Style) -> None:
         assert line.x1 == pytest.approx(right_edge, abs=1.0)
 
 
-def test_bullets_hang_at_the_configured_indent(geo, standard: Style) -> None:
-    expected = (
-        standard.margin_x
-        + standard.marker_indent
-        + standard.marker_size
-        + standard.body_indent
-    )
-    bullets = [ln for ln in geo.lines if ln.x0 > standard.margin_x + 10]
-    assert len(bullets) > 10
-    for line in bullets:
-        assert line.x0 == pytest.approx(expected, abs=0.5)
+def test_bullet_markers_sit_at_the_configured_indent(geo, standard: Style) -> None:
+    marked = [ln for ln in geo.lines if ln.text.startswith(standard.marker_glyph)]
+    assert len(marked) > 10
+    for line in marked:
+        assert line.x0 == pytest.approx(
+            standard.margin_x + standard.marker_indent, abs=0.5
+        )
+
+
+def test_bullet_bodies_share_one_hanging_indent(geo, standard: Style) -> None:
+    """Wrapped lines must align to the body edge, not the marker edge.
+
+    Asserted by measurement rather than by summing style values: the marker is
+    a glyph, and its advance width is not its font size.
+    """
+    indented = [ln for ln in geo.lines if ln.x0 > standard.margin_x + 10]
+    wrapped = [ln for ln in indented if not ln.text.startswith(standard.marker_glyph)]
+    assert len(wrapped) > 5
+    edges = {round(ln.x0, 1) for ln in wrapped}
+    assert len(edges) == 1
+    assert edges.pop() > standard.margin_x + standard.marker_indent
 
 
 def test_body_lines_share_one_rhythm(geo) -> None:

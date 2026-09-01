@@ -16,8 +16,8 @@ Under construction, milestone by milestone. See
 |---|---|
 | M0 — scaffold, tooling, CI, `cvme doctor` | done |
 | M1 — markdown grammar, parser, Typst renderer, `cvme render` | done |
-| M2 — page autofit, machine-readable output | next |
-| M3 — fact corpus and the `cvme verify` guardrails | |
+| M2 — page autofit, machine-readable output | done |
+| M3 — fact corpus and the `cvme verify` guardrails | next |
 | M4 — job description scraping | deferred |
 | M5 — agent-driven tailoring | deferred |
 
@@ -42,7 +42,14 @@ uv run cvme render path/to/resume.md -o out/resume.pdf
 uv run cvme render resume.md --style compact --png
 uv run cvme render resume.md --set leading=6.0 --set margin_x=50
 uv run cvme render resume.md --watch
+uv run cvme render resume.md --max-pages 1        # tighten until it fits
+uv run cvme render resume.md --pdf-standard ua-1  # accessibility-tagged
 ```
+
+`--max-pages` is enforced: the renderer walks a bounded ladder of density
+adjustments and fails with a diagnostic naming the longest material if the
+floors are reached. See [docs/machine-readability.md](docs/machine-readability.md)
+for how the output reads to a parser.
 
 The authoring grammar is [`src/cvme/md/GRAMMAR.md`](src/cvme/md/GRAMMAR.md).
 `tests/fixtures/resume.md` is a complete worked example.

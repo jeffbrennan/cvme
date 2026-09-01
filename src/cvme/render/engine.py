@@ -14,6 +14,7 @@ from typing import Any, cast
 import typst
 
 from cvme.errors import RenderError
+from cvme.md.inline import to_plain
 from cvme.models import Document
 from cvme.render.fonts import font_paths
 from cvme.style.schema import Style
@@ -34,10 +35,9 @@ REPRODUCIBLE_TIMESTAMP = 0
 def document_payload(doc: Document) -> dict[str, Any]:
     """Serialise the IR into the shape the template expects."""
     payload = doc.model_dump()
-    # PDF metadata is literal text, so strip the markup escapes back out.
-    plain = doc.meta.get("title") or doc.name.replace("\\", "")
-    payload["title"] = plain
-    payload["name_plain"] = doc.name.replace("\\", "")
+    # PDF metadata is literal text, so recover it from the markup.
+    payload["name_plain"] = to_plain(doc.name)
+    payload["title"] = doc.meta.get("title") or payload["name_plain"]
     payload["keywords"] = [
         k.strip() for k in doc.meta.get("keywords", "").split(",") if k.strip()
     ]
@@ -75,6 +75,8 @@ def compile_document(
         "ignore_system_fonts": True,
         "timestamp": REPRODUCIBLE_TIMESTAMP,
     }
+    if style.pdf_standard:
+        kwargs["pdf_standards"] = [style.pdf_standard]
     if fmt != "pdf":
         kwargs["format"] = fmt
         if ppi is not None:

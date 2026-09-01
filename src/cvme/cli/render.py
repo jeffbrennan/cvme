@@ -11,6 +11,7 @@ import typer
 from cvme.errors import ConfigError
 from cvme.md.parse import parse_file
 from cvme.render.engine import compile_document
+from cvme.render.fit import fit
 from cvme.style.schema import resolve
 
 
@@ -61,6 +62,17 @@ def render(
         list[str] | None,
         typer.Option("--set", help="Override a style key, e.g. --set leading=6.0."),
     ] = None,
+    max_pages: Annotated[
+        int | None, typer.Option("--max-pages", help="Page budget to fit within.")
+    ] = None,
+    no_autofit: Annotated[
+        bool,
+        typer.Option("--no-autofit", help="Render as authored; only warn if over."),
+    ] = False,
+    pdf_standard: Annotated[
+        str | None,
+        typer.Option("--pdf-standard", help="Emit to a standard, e.g. ua-1, a-2b."),
+    ] = None,
     watch: Annotated[
         bool, typer.Option("--watch", help="Re-render whenever the source changes.")
     ] = False,
@@ -69,17 +81,31 @@ def render(
     if not source.exists():
         raise ConfigError(f"no such file: {source}")
     out = output or source.with_suffix(".pdf")
-    resolved = resolve(style, _overrides(set_ or []))
+    overrides = _overrides(set_ or [])
+    if max_pages is not None:
+        overrides["max_pages"] = max_pages
+    if pdf_standard is not None:
+        overrides["pdf_standard"] = pdf_standard
+    if no_autofit:
+        overrides["autofit"] = False
+    resolved = resolve(style, overrides)
 
     def once() -> None:
         doc = parse_file(source)
-        compile_document(doc, resolved, output=out, template=template)
-        typer.echo(f"wrote {out}")
+        result = fit(doc, resolved, output=out, template=template)
+        typer.echo(f"wrote {out} ({result.pages} page{'s' * (result.pages != 1)})")
+        if result.applied:
+            typer.echo(f"  tightened to fit: {', '.join(result.applied)}")
+        elif result.pages > resolved.max_pages:
+            typer.echo(
+                f"  warning: {result.pages} pages exceeds the budget of "
+                f"{resolved.max_pages}; autofit is off"
+            )
         if png:
             stem = out.with_suffix("")
             compile_document(
                 doc,
-                resolved,
+                result.style,
                 output=Path(f"{stem}_{{n}}.png"),
                 template=template,
                 fmt="png",
