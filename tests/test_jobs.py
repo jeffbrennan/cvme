@@ -185,6 +185,43 @@ def test_a_generic_url_falls_through_to_jsonld(tmp_path: Path) -> None:
     assert posting.source == "generic"
 
 
+@pytest.mark.parametrize(
+    ("url", "page", "title", "company", "description"),
+    [
+        (
+            "https://www.linkedin.com/jobs/view/4012345",
+            "linkedin_page.html",
+            "Principal Platform Engineer",
+            "Northwind Systems",
+            "Own developer infrastructure",
+        ),
+        (
+            "https://www.indeed.com/viewjob?jk=abc123",
+            "indeed_page.html",
+            "Senior Data Engineer",
+            "Contoso Analytics",
+            "Python and SQL",
+        ),
+    ],
+)
+def test_job_sites_fall_through_to_public_html(
+    tmp_path: Path,
+    url: str,
+    page: str,
+    title: str,
+    company: str,
+    description: str,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=fixture(page))
+
+    posting = _fetcher(tmp_path, handler).fetch(url)
+    assert posting.tier == "site:html"
+    assert posting.title == title
+    assert posting.company == company
+    assert description in posting.description
+
+
 def test_a_page_with_nothing_usable_explains_what_to_do_instead(tmp_path: Path) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, text=fixture("plain_page.html"))
