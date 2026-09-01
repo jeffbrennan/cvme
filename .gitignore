@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.venv/
+.cvme/
+spike_out*
+*.egg-info/
+.pytest_cache/
