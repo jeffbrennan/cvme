@@ -1,0 +1,15 @@
+# Tighter, for when a page and a half of content has to become one page.
+[style]
+paper = "us-letter"
+margin_x = 50.4          # 0.7in
+margin_y = 32.4          # 0.45in
+body_size = 10.25
+leading = 5.4
+name_size = 18.0
+section_size = 11.0
+date_size = 9.5
+header_gap = 8.0
+section_gap_before = 6.0
+section_gap_after = 9.0
+entry_gap_before = 5.5
+max_pages = 1

@@ -15,8 +15,8 @@ Under construction, milestone by milestone. See
 | Milestone | State |
 |---|---|
 | M0 — scaffold, tooling, CI, `cvme doctor` | done |
-| M1 — markdown grammar, parser, Typst renderer, `cvme render` | next |
-| M2 — style presets, page autofit, machine-readable output | |
+| M1 — markdown grammar, parser, Typst renderer, `cvme render` | done |
+| M2 — page autofit, machine-readable output | next |
 | M3 — fact corpus and the `cvme verify` guardrails | |
 | M4 — job description scraping | deferred |
 | M5 — agent-driven tailoring | deferred |
@@ -32,5 +32,17 @@ markdown ──parse──▶ typed IR ──render──▶ Typst source ──
                   style config (TOML)
 ```
 
-Fonts are vendored and system fonts are disabled, so the same source produces
-the same PDF everywhere.
+Fonts are vendored and system fonts are disabled, and the PDF timestamp is
+pinned, so the same source produces byte-identical output everywhere.
+
+## Usage
+
+```bash
+uv run cvme render path/to/resume.md -o out/resume.pdf
+uv run cvme render resume.md --style compact --png
+uv run cvme render resume.md --set leading=6.0 --set margin_x=50
+uv run cvme render resume.md --watch
+```
+
+The authoring grammar is [`src/cvme/md/GRAMMAR.md`](src/cvme/md/GRAMMAR.md).
+`tests/fixtures/resume.md` is a complete worked example.

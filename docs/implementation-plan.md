@@ -644,16 +644,26 @@ measured result is 13.4–13.5pt against the reference's 13.4–13.5pt.
 
 ### Verification
 
-`spikes/match/compare.py` measures a rendered PDF against the reference and
-reports header positions, line-delta distribution, right-edge alignment and
-page count. Current deltas:
+`tests/geometry.py` measures a rendered PDF and `tests/test_render_geometry.py`
+asserts against it. Measurement is by **text baseline**, read from each
+character's text matrix — not by bounding-box top, which moves with ascender
+height and so shifts whenever font weight or size changes. That distinction
+mattered: it accounted for roughly half the apparent error during tuning.
 
-| Measure | Reference | Template |
-|---|---|---|
-| `SUMMARY` header y | 64.2 | 65.3 |
-| Right-aligned date edge | 554.3 | 554.4 |
-| Line delta (mode) | 13.4 / 13.5 | 13.4 / 13.5 |
-| Pages | 1 | 1 |
+Against the reference, per-line spacing error is now:
+
+| Measure | Value |
+|---|---|
+| Mean absolute error | 0.26pt |
+| Max error | 0.90pt |
+| Lines beyond 0.7pt | 2 of 40 |
+| Pages | 1, as the reference |
+
+The residual is at the reference's own noise floor. Word set its gap after a
+section header anywhere between 24.0pt and 25.7pt depending on the section — a
+1.7pt spread with no apparent intent — where cvme is uniform at 24.9pt. The
+remaining outliers are all instances of that inconsistency, so closing them
+further would mean reproducing Word's arbitrariness rather than the design.
 
 Comparing geometry rather than PDF bytes is what makes this a usable
 regression test, and §9's golden-file strategy is built on it.

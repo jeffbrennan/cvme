@@ -1,0 +1,13 @@
+# The default. Matches the measured reference layout in
+# docs/implementation-plan.md §12.
+[style]
+paper = "us-letter"
+margin_x = 57.6          # 0.8in
+margin_y = 36.0          # 0.5in
+body_size = 11.0
+leading = 6.4
+name_size = 19.5
+section_size = 12.0
+section_gap_after = 11.3
+date_size = 10.0
+max_pages = 1

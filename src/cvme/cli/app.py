@@ -8,6 +8,7 @@ import typer
 from rich.console import Console
 
 from cvme import __version__
+from cvme.cli.render import render
 from cvme.errors import CvmeError
 
 app = typer.Typer(
@@ -17,6 +18,9 @@ app = typer.Typer(
     add_completion=False,
 )
 err_console = Console(stderr=True)
+
+
+app.command()(render)
 
 
 @app.command()

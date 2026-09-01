@@ -41,11 +41,21 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# En dash is domain content here: it separates date ranges and the role from
+# the organisation. Em dash is deliberately not allowed -- the generated-prose
+# rules ban it.
+allowed-confusables = ["\u2013"]
 
 [tool.pyrefly]
 project-includes = ["src", "tests"]
+# The repo root as well as src/, so `tests.geometry` resolves; pyrefly infers
+# only src/ from the project layout.
+search-path = ["src", "."]
 python-version = "3.13"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.ruff.lint.isort]
+known-first-party = ["cvme", "tests"]

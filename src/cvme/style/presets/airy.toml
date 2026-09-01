@@ -1,0 +1,15 @@
+# More generous, for shorter histories or a two-page budget.
+[style]
+paper = "us-letter"
+margin_x = 64.8          # 0.9in
+margin_y = 43.2          # 0.6in
+body_size = 11.0
+leading = 7.6
+name_size = 20.0
+section_size = 12.0
+date_size = 10.0
+header_gap = 13.0
+section_gap_before = 10.0
+section_gap_after = 13.0
+entry_gap_before = 9.0
+max_pages = 2
