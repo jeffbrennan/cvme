@@ -7,6 +7,7 @@ document that invents a metric should never reach a PDF.
 
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
 from typing import Annotated
 
@@ -84,7 +85,7 @@ def tailor(
     for name in wanted:
         config.document(name)  # raises with the known names
 
-    workdir = out or (config.project.applications_dir / job_path.stem)
+    workdir = (out or (config.project.applications_dir / job_path.stem)).resolve()
 
     bundles: list[Bundle] = []
     for name in wanted:
@@ -99,6 +100,7 @@ def tailor(
                 output_path=workdir / f"{name}.md",
                 style=resolve_style(document.style, document.overrides),
                 generate=config.generate,
+                agent_output_path=Path(f"{name}.md"),
             )
         )
 
@@ -110,11 +112,17 @@ def tailor(
             typer.echo(bundle.prompt)
         return
 
-    workdir.mkdir(parents=True, exist_ok=True)
     spec = agents.resolve(agent_name or config.generate.agent, config.agents)
     corpus: Corpus = (
         load_corpus(config.project.facts) if config.project.facts else Corpus()
     )
+    if not no_verify and not corpus:
+        raise ConfigError(
+            "tailoring verification requires a fact corpus; configure "
+            "project.facts or pass --no-verify explicitly"
+        )
+
+    workdir.mkdir(parents=True, exist_ok=True)
 
     for bundle in bundles:
         prompt_file = workdir / f"{bundle.document}.prompt.md"
@@ -126,21 +134,29 @@ def tailor(
             continue
 
         typer.echo(f"running {spec.name} for {bundle.document}...")
-        result = agents.run(spec, bundle.prompt, workdir, prompt_file)
-        if result.returncode != 0:
-            raise agents.AgentError(
-                f"{spec.name} exited {result.returncode}\n"
-                f"{(result.stderr or result.stdout).strip()[:1200]}"
-            )
-        if not bundle.output_path.is_file():
-            raise agents.AgentError(
-                f"{spec.name} did not write {bundle.output_path}.\n"
-                f"  The prompt is at {prompt_file} if you want to run it by hand."
+        with tempfile.TemporaryDirectory(prefix=f"cvme-{bundle.document}-") as tmp:
+            staging = Path(tmp)
+            staged_prompt = staging / "prompt.md"
+            staged_prompt.write_text(bundle.prompt, encoding="utf-8")
+            result = agents.run(spec, bundle.prompt, staging, staged_prompt)
+            if result.returncode != 0:
+                raise agents.AgentError(
+                    f"{spec.name} exited {result.returncode}\n"
+                    f"{(result.stderr or result.stdout).strip()[:1200]}"
+                )
+            staged_output = staging / bundle.agent_output_path
+            if not staged_output.is_file():
+                raise agents.AgentError(
+                    f"{spec.name} did not write {bundle.agent_output_path}.\n"
+                    f"  The prompt is at {prompt_file} if you want to run it by hand."
+                )
+            bundle.output_path.write_text(
+                staged_output.read_text(encoding="utf-8"), encoding="utf-8"
             )
         typer.echo(f"  wrote {bundle.output_path}")
 
         if not no_verify:
-            report = verify_file(bundle.output_path, corpus)
+            report = verify_file(bundle.output_path, corpus, require_citations=True)
             typer.echo(report.format())
             if not report.ok:
                 # A PDF from an earlier run would now sit beside a rejected

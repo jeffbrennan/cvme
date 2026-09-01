@@ -1,10 +1,11 @@
 """Extract and normalise quantitative claims.
 
-The unit of comparison is a normalised ``(value, unit)`` pair, so that
+The unit of comparison retains value, semantic unit, and approximation, so that
 ``100k``, ``100,000`` and ``$100K`` compare as intended while ``$98k`` and
-``$100k`` do not. Matching is deliberately exact: rounding a corpus figure up
-in the output is precisely the failure this is here to catch. If you want to
-claim "~$100k", write that in the corpus.
+``$100k`` do not. ``14 facilities`` is distinct from ``14 engineers``, and
+``100k`` is distinct from ``~100k`` or ``100k+``. Matching is deliberately
+exact: changing the meaning of a corpus figure is precisely the failure this
+is here to catch.
 """
 
 from __future__ import annotations
@@ -35,11 +36,21 @@ WORDS: dict[str, float] = {
     "ten": 10,
     "eleven": 11,
     "twelve": 12,
+    "thirteen": 13,
+    "fourteen": 14,
     "fifteen": 15,
+    "sixteen": 16,
+    "seventeen": 17,
+    "eighteen": 18,
+    "nineteen": 19,
     "twenty": 20,
     "thirty": 30,
     "forty": 40,
     "fifty": 50,
+    "sixty": 60,
+    "seventy": 70,
+    "eighty": 80,
+    "ninety": 90,
 }
 
 #: Units normalised to a singular canonical form.
@@ -73,21 +84,40 @@ UNIT_ALIASES: dict[str, str] = {
 
 _NUMBER = re.compile(
     r"""
+    (?P<prefix>~|≈|about\s+|approximately\s+|over\s+|more\s+than\s+|at\s+least\s+|up\s+to\s+)?
     (?P<currency>[$£€])?
     (?P<value>\d{1,3}(?:,\d{3})+ | \d+(?:\.\d+)?)
     (?P<scale>[kKmMbB]|bn|BN|Bn)?
-    \s*
     (?P<percent>%)?
+    (?P<plus>\+)?
     \s*
-    (?P<unit>[A-Za-z]{1,7})?
+    (?P<unit>[A-Za-z]{1,20})?
     """,
-    re.VERBOSE,
+    re.IGNORECASE | re.VERBOSE,
 )
 _WORD_NUMBER = re.compile(
-    r"\b(?P<word>" + "|".join(WORDS) + r")\s+(?P<unit>[A-Za-z]{1,7})\b",
+    r"\b(?P<prefix>about\s+|approximately\s+|over\s+|more\s+than\s+|"
+    r"at\s+least\s+|up\s+to\s+)?(?P<word>"
+    + "|".join(WORDS)
+    + r")\s+(?P<unit>[A-Za-z]{1,20})\b",
     re.IGNORECASE,
 )
 _YEAR = re.compile(r"^(19|20)\d{2}$")
+_CONNECTORS = {"and", "in", "of", "or", "other", "per", "to"}
+_NON_MEASUREMENT_UNITS = {
+    "claim",
+    "item",
+    "paragraph",
+    "requirement",
+    "role",
+    "section",
+    "sentence",
+    "thing",
+    "way",
+}
+_PRONOUN_UNITS = {"it", "them", "these", "those"}
+
+ClaimKey = tuple[float, str | None, str]
 
 
 @dataclass(frozen=True)
@@ -98,10 +128,11 @@ class Claim:
     value: float
     unit: str | None
     column: int
+    qualifier: str = ""
 
     @property
-    def key(self) -> tuple[float, str | None]:
-        return (self.value, self.unit)
+    def key(self) -> ClaimKey:
+        return (self.value, self.unit, self.qualifier)
 
     def __str__(self) -> str:
         return self.raw
@@ -110,7 +141,33 @@ class Claim:
 def _canonical_unit(token: str | None) -> str | None:
     if not token:
         return None
-    return UNIT_ALIASES.get(token.lower())
+    lowered = token.lower()
+    if lowered in _CONNECTORS:
+        return None
+    if lowered in UNIT_ALIASES:
+        return UNIT_ALIASES[lowered]
+    if lowered.endswith("ies") and len(lowered) > 3:
+        return f"{lowered[:-3]}y"
+    if lowered.endswith("s") and not lowered.endswith("ss"):
+        return lowered[:-1]
+    return lowered
+
+
+def _unit_after(match: re.Match[str], text: str) -> str | None:
+    """Return the measured noun, skipping connectors such as ``in``."""
+    token = match.group("unit")
+    if token and token.lower() in _CONNECTORS:
+        following = re.match(r"\s*([A-Za-z]{1,20})", text[match.end() :])
+        token = following.group(1) if following else None
+    if token and token.lower() in _PRONOUN_UNITS:
+        return None
+    return _canonical_unit(token)
+
+
+def _qualifier(match: re.Match[str]) -> str:
+    prefix = re.sub(r"\s+", " ", (match.group("prefix") or "").strip().lower())
+    suffix = "+" if match.groupdict().get("plus") else ""
+    return " ".join(part for part in (prefix, suffix) if part)
 
 
 def extract(text: str) -> list[Claim]:
@@ -129,40 +186,39 @@ def extract(text: str) -> list[Claim]:
         if scale := match.group("scale"):
             value *= SCALES[scale.lower()]
 
-        unit: str | None = None
+        subject = _unit_after(match, text)
+        unit: str | None
         if match.group("percent"):
-            unit = "%"
+            unit = f"%:{subject}" if subject else "%"
         elif match.group("currency"):
-            unit = "currency"
+            unit = f"currency:{subject}" if subject else "currency"
         else:
-            unit = _canonical_unit(match.group("unit"))
+            unit = subject
 
         # Rebuild the display form from the parts that matched: group(0) can
         # trail an unrecognised word ("9 other", "$100k per") because the unit
         # group is optional and greedy.
-        raw = "".join(
-            part
-            for part in (
-                match.group("currency"),
-                digits,
-                match.group("scale"),
-                match.group("percent"),
+        raw = match.group(0).strip()
+        claims.append(
+            Claim(
+                raw=raw,
+                value=value,
+                unit=unit,
+                qualifier=_qualifier(match),
+                column=match.start(),
             )
-            if part
         )
-        if unit not in (None, "currency", "%"):
-            raw = f"{raw} {match.group('unit')}"
-        claims.append(Claim(raw=raw, value=value, unit=unit, column=match.start()))
 
     for match in _WORD_NUMBER.finditer(text):
         unit = _canonical_unit(match.group("unit"))
-        if unit is None:
-            continue  # "one claim per bullet" is prose, not a measurement
+        if unit is None or unit in _NON_MEASUREMENT_UNITS:
+            continue
         claims.append(
             Claim(
                 raw=match.group(0).strip(),
                 value=WORDS[match.group("word").lower()],
                 unit=unit,
+                qualifier=_qualifier(match),
                 column=match.start(),
             )
         )

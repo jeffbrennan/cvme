@@ -13,9 +13,11 @@ make it "fit" is worse than saying it does not.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from uuid import uuid4
 
 from pypdf import PdfReader
 
@@ -102,38 +104,51 @@ def fit(
 ) -> FitResult:
     """Compile, and tighten until the page budget is met.
 
-    Always leaves ``output`` holding the best result achieved.
+    Publishes ``output`` only after the page budget is met. Failed attempts are
+    compiled beside it and removed, so a rejected PDF cannot be mistaken for a
+    valid result.
     """
     from cvme.render.engine import compile_document
 
-    compile_document(doc, style, output=output, template=template)
-    pages = page_count(output)
-    if pages <= style.max_pages:
-        return FitResult(style, pages, [])
-    if style.on_overflow == "warn":
-        return FitResult(style, pages, [])
-    if style.on_overflow == "error":
-        raise FitError(_diagnose(doc, pages, style.max_pages, tightened=False))
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.unlink(missing_ok=True)
+    attempt = output.with_name(f".{output.stem}.{uuid4().hex}.pdf")
 
-    applied: list[str] = []
-    current = style
-    for _ in range(MAX_ITERATIONS):
-        progressed = False
-        for step in LADDER:
-            tightened = step.apply(current)
-            if tightened is None:
-                continue
-            progressed = True
-            current = tightened
-            applied.append(step.name)
-            compile_document(doc, current, output=output, template=template)
-            pages = page_count(output)
-            if pages <= current.max_pages:
-                return FitResult(current, pages, _summarise(applied))
-        if not progressed:
-            break
+    def publish(result: FitResult) -> FitResult:
+        os.replace(attempt, output)
+        return result
 
-    raise FitError(_diagnose(doc, pages, style.max_pages, tightened=True))
+    try:
+        compile_document(doc, style, output=attempt, template=template)
+        pages = page_count(attempt)
+        if pages <= style.max_pages:
+            return publish(FitResult(style, pages, []))
+        if style.on_overflow == "warn":
+            return publish(FitResult(style, pages, []))
+        if style.on_overflow == "error":
+            raise FitError(_diagnose(doc, pages, style.max_pages, tightened=False))
+
+        applied: list[str] = []
+        current = style
+        for _ in range(MAX_ITERATIONS):
+            progressed = False
+            for step in LADDER:
+                tightened = step.apply(current)
+                if tightened is None:
+                    continue
+                progressed = True
+                current = tightened
+                applied.append(step.name)
+                compile_document(doc, current, output=attempt, template=template)
+                pages = page_count(attempt)
+                if pages <= current.max_pages:
+                    return publish(FitResult(current, pages, _summarise(applied)))
+            if not progressed:
+                break
+
+        raise FitError(_diagnose(doc, pages, style.max_pages, tightened=True))
+    finally:
+        attempt.unlink(missing_ok=True)
 
 
 def _summarise(applied: list[str]) -> list[str]:

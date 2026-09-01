@@ -52,3 +52,13 @@ def test_without_a_target_every_configured_document_is_checked(tmp_path: Path) -
     result = runner.invoke(app, ["verify", "--config", str(tmp_path / CONFIG_NAME)])
     assert result.exit_code == 0, result.output
     assert result.output.count("ok") >= 2
+
+
+def test_missing_corpus_fails_closed_unless_prose_only_is_explicit() -> None:
+    target = "tests/fixtures/resume.md"
+    failed = runner.invoke(app, ["verify", target])
+    assert failed.exit_code == 1
+    assert "requires a corpus" in failed.output
+
+    prose_only = runner.invoke(app, ["verify", target, "--no-facts"])
+    assert prose_only.exit_code == 0, prose_only.output

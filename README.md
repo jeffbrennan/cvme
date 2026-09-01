@@ -118,3 +118,14 @@ Exit codes are distinct so a script can tell failures apart: `1` bad input,
 `cvme tailor` treats verification as a gate, not a report. A document that
 invents a metric is never rendered, and any PDF from an earlier run is removed
 rather than left sitting beside a rejected draft.
+
+Generated quantitative claims must carry an `<!-- fact: id -->` citation.
+Matching retains the measured subject and qualifier, so `14 facilities` does
+not license `14 engineers`, and `100k`, `~100k`, and `100k+` are distinct. Fact
+checking fails closed when no corpus is configured; use `--no-facts` for an
+explicit prose-only check or `tailor --no-verify` to bypass the generation gate.
+
+Job postings are untrusted input. Their text is wrapped in a per-run random
+boundary with instructions to treat it only as reference data. Automated agents
+run in a temporary staging directory containing only the assembled prompt, and
+their draft is copied to the application directory only after the process exits.

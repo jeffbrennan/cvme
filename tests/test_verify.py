@@ -28,18 +28,19 @@ def corpus() -> Corpus:
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        ("8B+ events", (8e9, None)),
-        ("8,000,000,000 events", (8e9, None)),
-        ("$20M+ in savings", (2e7, "currency")),
-        ("35%", (35.0, "%")),
-        ("six years", (6.0, "year")),
-        ("6 yrs", (6.0, "year")),
-        ("40 minutes", (40.0, "minute")),
-        ("120TB", (120.0, "tb")),
+        ("8B+ events", (8e9, "event", "+")),
+        ("8,000,000,000 events", (8e9, "event", "")),
+        ("$20M+ in savings", (2e7, "currency:saving", "+")),
+        ("35%", (35.0, "%", "")),
+        ("six years", (6.0, "year", "")),
+        ("6 yrs", (6.0, "year", "")),
+        ("40 minutes", (40.0, "minute", "")),
+        ("120TB", (120.0, "tb", "")),
+        ("fourteen facilities", (14.0, "facility", "")),
     ],
 )
 def test_equivalent_spellings_normalise_together(
-    text: str, expected: tuple[float, str | None]
+    text: str, expected: tuple[float, str | None, str]
 ) -> None:
     assert extract(text)[0].key == expected
 
@@ -52,7 +53,7 @@ def test_bare_years_are_not_claims() -> None:
 def test_rounding_a_corpus_figure_up_is_not_allowed() -> None:
     """The exact case this exists to catch."""
     corpus = Corpus()
-    corpus.keys = {(98000.0, "currency")}
+    corpus.keys = {(98000.0, "currency", "")}
     corpus.sources = [Path("x")]
     report = verify_text("- Managed $100k per month\n", Path("d.md"), corpus)
     assert [f.rule for f in report.errors] == ["fact:unsourced"]
@@ -84,7 +85,10 @@ def test_the_adversarial_fixture_is_caught(corpus: Corpus) -> None:
 def test_an_invented_metric_is_reported_with_its_line(corpus: Corpus) -> None:
     report = verify_file(FIXTURES / "resume_bad.md", corpus)
     unsourced = [f for f in report.findings if f.rule == "fact:unsourced"]
-    assert {f.message.split("'")[1] for f in unsourced} == {"11B", "$4M"}
+    assert {f.message.split("'")[1] for f in unsourced} == {
+        "11B+ events",
+        "$4M in",
+    }
     assert all(f.line > 0 for f in unsourced)
 
 
@@ -101,6 +105,31 @@ def test_a_tagged_claim_must_match_the_fact_it_cites(corpus: Corpus) -> None:
 def test_untagged_claims_may_come_from_anywhere_in_the_corpus(corpus: Corpus) -> None:
     report = verify_text("- Reported across 14 facilities\n", Path("d.md"), corpus)
     assert report.ok
+
+
+def test_generated_claims_can_require_an_explicit_citation(corpus: Corpus) -> None:
+    report = verify_text(
+        "- Reported across 14 facilities\n",
+        Path("d.md"),
+        corpus,
+        require_citations=True,
+    )
+    assert [f.rule for f in report.errors] == ["fact:uncited"]
+
+
+def test_same_number_with_a_different_subject_does_not_match(corpus: Corpus) -> None:
+    report = verify_text(
+        "- Managed 14 engineers <!-- fact: m-facilities -->\n",
+        Path("d.md"),
+        corpus,
+        require_citations=True,
+    )
+    assert [f.rule for f in report.errors] == ["fact:mismatch"]
+
+
+def test_approximations_and_lower_bounds_are_distinct() -> None:
+    assert extract("100k records")[0].key != extract("~100k records")[0].key
+    assert extract("100k records")[0].key != extract("100k+ records")[0].key
 
 
 def test_labelled_list_lines_are_exempt_from_rhetoric_rules(corpus: Corpus) -> None:
@@ -126,7 +155,7 @@ def test_corpus_derives_ids_when_untagged(tmp_path: Path) -> None:
     path.write_text("- Managed a team of 4 engineers.\n")
     loaded = load([path])
     assert len(loaded.facts) == 1
-    assert (4.0, None) in loaded.keys
+    assert (4.0, "engineer", "") in loaded.keys
 
 
 def test_every_rule_has_a_usable_message() -> None:

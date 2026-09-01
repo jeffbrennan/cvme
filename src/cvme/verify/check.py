@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 
 from cvme.verify.corpus import Corpus
-from cvme.verify.numbers import Claim, extract
+from cvme.verify.numbers import Claim, ClaimKey, extract
 from cvme.verify.prose import Rule, load_rules
 from cvme.verify.prose import check_line as check_prose
 from cvme.verify.report import Finding, Report
@@ -33,15 +33,30 @@ def _body_lines(text: str) -> list[tuple[int, str]]:
 
 
 def _claim_findings(
-    claim: Claim, line_no: int, fact_ids: list[str], corpus: Corpus
+    claim: Claim,
+    line_no: int,
+    fact_ids: list[str],
+    corpus: Corpus,
+    *,
+    require_citations: bool,
 ) -> Finding | None:
+    def matches(keys: set[ClaimKey]) -> bool:
+        if claim.key in keys:
+            return True
+        if claim.unit is None:
+            return any(
+                value == claim.value and qualifier == claim.qualifier
+                for value, _, qualifier in keys
+            )
+        return False
+
     if fact_ids:
-        allowed: set[tuple[float, str | None]] = set()
+        allowed: set[ClaimKey] = set()
         for identifier in fact_ids:
             fact = corpus.facts.get(identifier)
             if fact is not None:
                 allowed |= fact.keys
-        if claim.key in allowed:
+        if matches(allowed):
             return None
         cited = ", ".join(fact_ids)
         return Finding(
@@ -53,7 +68,16 @@ def _claim_findings(
             suggestion="cite the fact that carries this number, or correct it",
         )
 
-    if claim.key in corpus.keys:
+    if require_citations:
+        return Finding(
+            rule="fact:uncited",
+            severity="error",
+            message=f"'{claim.raw}' has no fact citation",
+            line=line_no,
+            suggestion="add an <!-- fact: id --> citation for this claim",
+        )
+
+    if matches(corpus.keys):
         return None
 
     near = corpus.describe(claim.key)
@@ -78,6 +102,7 @@ def verify_text(
     *,
     rules: list[Rule] | None = None,
     check_facts: bool = True,
+    require_citations: bool = False,
 ) -> Report:
     """Check one document's source."""
     rules = load_rules() if rules is None else rules
@@ -103,16 +128,32 @@ def verify_text(
 
         findings += check_prose(prose, number, rules)
 
-        if check_facts and corpus:
+        if check_facts:
             for claim in extract(prose):
-                if finding := _claim_findings(claim, number, fact_ids, corpus):
+                if finding := _claim_findings(
+                    claim,
+                    number,
+                    fact_ids,
+                    corpus,
+                    require_citations=require_citations,
+                ):
                     findings.append(finding)
 
     findings.sort(key=lambda f: (f.line, f.rule))
     return Report(path=path, findings=findings)
 
 
-def verify_file(path: Path, corpus: Corpus, *, check_facts: bool = True) -> Report:
+def verify_file(
+    path: Path,
+    corpus: Corpus,
+    *,
+    check_facts: bool = True,
+    require_citations: bool = False,
+) -> Report:
     return verify_text(
-        path.read_text(encoding="utf-8"), path, corpus, check_facts=check_facts
+        path.read_text(encoding="utf-8"),
+        path,
+        corpus,
+        check_facts=check_facts,
+        require_citations=require_citations,
     )

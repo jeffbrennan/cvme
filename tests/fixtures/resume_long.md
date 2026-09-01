@@ -63,7 +63,7 @@ to apply what I have learned on a team that treats pipelines as products.
 - Built the weekly demand forecast used by regional planners
 - Automated a manual reconciliation that had taken two days each month
 - Partnered with finance to define the metrics the board reviewed
-- Trained six analysts on the query patterns the warehouse rewarded
+- Trained nine analysts on the query patterns the warehouse rewarded
 
 ### Reporting Analyst @ Halden Municipal Services | Jan 2015 – May 2016
 

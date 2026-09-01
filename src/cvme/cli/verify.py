@@ -60,7 +60,10 @@ def verify(
     corpus: Corpus = load(fact_files) if fact_files else Corpus()
 
     if not no_facts and not corpus:
-        typer.echo("no fact corpus configured; checking prose only", err=True)
+        raise ConfigError(
+            "fact checking requires a corpus; configure project.facts, pass "
+            "--facts, or choose --no-facts explicitly"
+        )
 
     failed = False
     for path in paths:

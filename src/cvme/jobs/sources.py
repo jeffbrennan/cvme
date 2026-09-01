@@ -73,7 +73,10 @@ class Fetcher:
                 data = json.loads(body)
             except json.JSONDecodeError as exc:
                 raise FetchError(f"{match.provider} returned invalid JSON") from exc
-            return ats.parse(data, match, url)
+            try:
+                return ats.parse(data, match, url)
+            except ats.AtsParseError as exc:
+                raise FetchError(str(exc)) from exc
 
         html = self._get(url, suffix=".html")
         if posting := jsonld.extract(html, url, source=_site(url)):

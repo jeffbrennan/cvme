@@ -26,6 +26,21 @@ prompt = pathlib.Path(sys.argv[1]).read_text()
 out = pathlib.Path(re.search(r"Write the result to: `([^`]+)`", prompt).group(1))
 pattern = r"# BASE DOCUMENT\\n\\n(.*?)\\n\\n---\\n"
 base = re.search(pattern, prompt + "\\n\\n---\\n", re.S).group(1)
+fact_ids = [
+    "s-experience-years", "s-tenure-current", "s-python", "s-sql", "s-spark",
+    "m-events", "m-lake", "m-pipelines", "m-facilities",
+    "m-analytics-pipeline", "m-analysts", "m-onboarding", "m-reconciliation",
+]
+citations = " ".join(f"<!-- fact: {identifier} -->" for identifier in fact_ids)
+frontmatter_markers = 0
+lines = []
+for line in base.splitlines():
+    if line.strip() == "---":
+        frontmatter_markers += 1
+    if frontmatter_markers >= 2 and line.strip() and line.strip() != "---":
+        line = f"{line} {citations}"
+    lines.append(line)
+base = "\\n".join(lines)
 if "--invent" in sys.argv:
     base = base.replace("14 facilities", "22 facilities")
 if "--nothing" in sys.argv:
@@ -74,7 +89,7 @@ def run(project: Path, *args: str):
 def test_dry_run_prints_the_prompt_and_writes_nothing(project: Path) -> None:
     result = run(project, "--dry-run")
     assert result.exit_code == 0, result.output
-    assert "# JOB POSTING" in result.output
+    assert "# UNTRUSTED JOB POSTING DATA" in result.output
     assert "Own ingestion and transformation." in result.output
     assert not (project / "applications").exists()
 
@@ -94,7 +109,7 @@ def test_an_invented_metric_blocks_the_pdf(project: Path) -> None:
     out = project / "applications" / "northwind"
     assert (out / "resume.md").is_file(), "the draft is kept for inspection"
     assert not (out / "resume.pdf").exists()
-    assert "appears nowhere in the fact corpus" in result.output
+    assert "does not appear in the cited fact" in result.output
 
 
 def test_a_failed_run_removes_a_stale_pdf(project: Path) -> None:
@@ -151,3 +166,25 @@ def test_a_missing_job_names_both_places_it_looked(project: Path) -> None:
     )
     assert result.exit_code == 1
     assert "no job posting at" in result.output
+
+
+def test_relative_output_directory_is_resolved_before_agent_runs(
+    project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(project)
+    result = run(project, "--agent", "stub", "-d", "resume", "--out", "custom")
+    assert result.exit_code == 0, result.output
+    assert (project / "custom" / "resume.md").is_file()
+    assert not (project / "custom" / "custom").exists()
+
+
+def test_tailoring_fails_closed_without_a_fact_corpus(project: Path) -> None:
+    config = project / CONFIG_NAME
+    text = config.read_text().replace(
+        'facts = ["facts/skills.md", "facts/metrics.md"]', "facts = []"
+    )
+    config.write_text(text)
+    result = run(project, "--agent", "stub", "-d", "resume")
+    assert result.exit_code == 1
+    assert "requires a fact corpus" in result.output
+    assert not (project / "applications").exists()

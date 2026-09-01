@@ -60,7 +60,7 @@ def test_impossible_budget_fails_with_a_diagnostic(
     assert "#strong[" not in message, "diagnostics should not leak Typst markup"
 
 
-def test_failure_still_leaves_the_best_attempt_on_disk(
+def test_failure_removes_every_rejected_attempt(
     long_source: str, tmp_path: Path
 ) -> None:
     experience = long_source.split("## Experience")[1].split("## Education")[0]
@@ -69,7 +69,7 @@ def test_failure_still_leaves_the_best_attempt_on_disk(
     out = tmp_path / "o.pdf"
     with pytest.raises(FitError):
         fit(doubled, resolve("standard"), output=out)
-    assert out.exists() and out.stat().st_size > 0
+    assert not out.exists()
 
 
 @pytest.mark.parametrize("step", LADDER, ids=lambda s: s.name)

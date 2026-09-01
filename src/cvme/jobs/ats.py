@@ -49,6 +49,10 @@ class AtsMatch:
         return f"https://api.ashbyhq.com/posting-api/job-board/{self.org}"
 
 
+class AtsParseError(ValueError):
+    """An ATS response did not contain the posting named by its URL."""
+
+
 def detect(url: str) -> AtsMatch | None:
     """Identify an ATS posting from its URL."""
     for provider, pattern in _PATTERNS.items():
@@ -107,10 +111,9 @@ def parse_lever(data: dict[str, Any], match: AtsMatch, url: str) -> JobPosting:
 def parse_ashby(data: dict[str, Any], match: AtsMatch, url: str) -> JobPosting:
     """Ashby serves a whole board, so the posting is selected by id."""
     jobs = data.get("jobs") or []
-    job = next(
-        (j for j in jobs if str(j.get("id")) == match.job_id),
-        jobs[0] if jobs else {},
-    )
+    job = next((j for j in jobs if str(j.get("id")) == match.job_id), None)
+    if job is None:
+        raise AtsParseError(f"Ashby board did not contain job {match.job_id}")
     remote = job.get("isRemote")
     return JobPosting(
         url=url,

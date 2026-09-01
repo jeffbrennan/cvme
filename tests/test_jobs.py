@@ -104,6 +104,12 @@ def test_ashby_selects_the_requested_job_from_the_whole_board() -> None:
     assert posting.remote is False
 
 
+def test_ashby_refuses_to_substitute_a_different_job() -> None:
+    match = ats.AtsMatch("ashby", "northwind", "missing-id")
+    with pytest.raises(ats.AtsParseError, match="did not contain job missing-id"):
+        ats.parse(payload("ashby.json"), match, ASHBY_URL)
+
+
 # --- JSON-LD --------------------------------------------------------------
 
 

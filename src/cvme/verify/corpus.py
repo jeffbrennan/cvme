@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from cvme.errors import ConfigError
-from cvme.verify.numbers import Claim, extract
+from cvme.verify.numbers import Claim, ClaimKey, extract
 
 _BULLET = re.compile(r"^\s*[-*+]\s+(?:\[(?P<id>[A-Za-z0-9_.-]+)\]\s*)?(?P<text>.+)$")
 _SLUG = re.compile(r"[^a-z0-9]+")
@@ -30,7 +30,7 @@ class Fact:
     claims: tuple[Claim, ...]
 
     @property
-    def keys(self) -> set[tuple[float, str | None]]:
+    def keys(self) -> set[ClaimKey]:
         return {c.key for c in self.claims}
 
 
@@ -38,17 +38,17 @@ class Fact:
 class Corpus:
     facts: dict[str, Fact] = field(default_factory=dict)
     #: Every claim available from any source, including untagged prose.
-    keys: set[tuple[float, str | None]] = field(default_factory=set)
+    keys: set[ClaimKey] = field(default_factory=set)
     sources: list[Path] = field(default_factory=list)
 
     def __bool__(self) -> bool:
         return bool(self.sources)
 
-    def describe(self, key: tuple[float, str | None]) -> list[str]:
+    def describe(self, key: ClaimKey) -> list[str]:
         """Facts whose value matches but whose unit does not, for hinting."""
-        value, _ = key
+        value, _, _ = key
         return [
-            f.text for f in self.facts.values() if any(v == value for v, _ in f.keys)
+            f.text for f in self.facts.values() if any(v == value for v, _, _ in f.keys)
         ]
 
 
@@ -67,12 +67,26 @@ def load(paths: list[Path]) -> Corpus:
         if not path.is_file():
             raise ConfigError(f"fact file not found: {path}")
         corpus.sources.append(path)
-        for number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        index = 0
+        while index < len(lines):
+            number = index + 1
+            raw = lines[index]
             line = raw.strip()
+            index += 1
             if not line or line.startswith("#"):
                 continue
             match = _BULLET.match(raw)
             text = match.group("text") if match else line
+            if match:
+                continuations: list[str] = []
+                while index < len(lines):
+                    following = lines[index]
+                    if not following.strip() or not following[:1].isspace():
+                        break
+                    continuations.append(following.strip())
+                    index += 1
+                text = " ".join((text, *continuations))
             claims = tuple(extract(text))
             corpus.keys.update(c.key for c in claims)
             if match:
