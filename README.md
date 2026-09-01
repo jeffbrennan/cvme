@@ -22,7 +22,7 @@ Under construction, milestone by milestone. See
 | M2b — project config, `cvme init` | done |
 | M3 — fact corpus and the `cvme verify` guardrails | done |
 | M4 — job capture: ATS APIs, JSON-LD, manual paths | partial (offline tiers) |
-| M5 — agent-driven tailoring | deferred |
+| M5 — agent-driven tailoring | done |
 
 ## Design
 
@@ -55,6 +55,15 @@ Capture a posting:
 uv run cvme job fetch https://boards.greenhouse.io/acme/jobs/4012345
 uv run cvme job add --html saved.html --url https://www.linkedin.com/jobs/view/123
 pbpaste | uv run cvme job add --stdin --url https://x.example/1 --title T --company C
+```
+
+Tailor to a posting. The agent writes the documents, cvme verifies them, and
+only then renders:
+
+```bash
+uv run cvme tailor northwind                    # uses the configured agent
+uv run cvme tailor northwind --dry-run          # print the prompt, change nothing
+uv run cvme tailor northwind --agent none       # write the prompt to paste elsewhere
 ```
 
 Verification checks that every number is sourced and the prose does not read
@@ -104,4 +113,8 @@ fails silently, and you find out after you have applied.
   [`src/cvme/verify/rules.toml`](src/cvme/verify/rules.toml).
 
 Exit codes are distinct so a script can tell failures apart: `1` bad input,
-`2` page budget, `3` verification.
+`2` page budget, `3` verification, `4` fetch, `5` agent.
+
+`cvme tailor` treats verification as a gate, not a report. A document that
+invents a metric is never rendered, and any PDF from an earlier run is removed
+rather than left sitting beside a rejected draft.

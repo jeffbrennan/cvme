@@ -41,7 +41,19 @@ class ProjectConfig(BaseModel):
 
     output_dir: Path = Path("out")
     jobs_dir: Path = Path("jobs")
+    applications_dir: Path = Path("applications")
     facts: list[Path] = Field(default_factory=list)
+
+
+class GenerateConfig(BaseModel):
+    """Knobs for the tailoring prompt."""
+
+    model_config = {"extra": "forbid"}
+
+    agent: str = "codex"
+    min_bullets: int = 2
+    max_bullets: int = 5
+    max_bullet_words: int = 32
 
 
 class Config(BaseModel):
@@ -52,6 +64,9 @@ class Config(BaseModel):
     root: Path
     project: ProjectConfig = Field(default_factory=ProjectConfig)
     documents: dict[str, DocumentConfig] = Field(default_factory=dict)
+    generate: GenerateConfig = Field(default_factory=GenerateConfig)
+    #: Raw [agents.<name>] tables, layered over the packaged defaults at use.
+    agents: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
     def document(self, name: str) -> DocumentConfig:
         if name not in self.documents:
@@ -92,6 +107,7 @@ def load_config(path: Path) -> Config:
 
     config.project.output_dir = _resolve(root, config.project.output_dir)
     config.project.jobs_dir = _resolve(root, config.project.jobs_dir)
+    config.project.applications_dir = _resolve(root, config.project.applications_dir)
     config.project.facts = [_resolve(root, f) for f in config.project.facts]
     for document in config.documents.values():
         document.path = _resolve(root, document.path)

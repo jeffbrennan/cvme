@@ -7,6 +7,7 @@
 [project]
 output_dir = "out"
 jobs_dir = "jobs"
+applications_dir = "applications"
 facts = ["facts/skills.md", "facts/metrics.md"]
 
 [documents.resume]
@@ -21,3 +22,16 @@ max_pages = 1
 path = "base/cover_letter.md"
 template = "cover_letter"
 style = "letter"
+
+[generate]
+# Which agent `cvme tailor` invokes. See `cvme doctor` for what is installed,
+# and src/cvme/generate/agents.toml for the argv each name expands to.
+agent = "codex"
+min_bullets = 2
+max_bullets = 5
+max_bullet_words = 32
+
+# Override an agent's invocation when its flags change, or add your own:
+# [agents.codex]
+# argv = ["codex", "exec", "--cd", "{workdir}", "-"]
+# stdin = true

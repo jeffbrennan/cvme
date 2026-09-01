@@ -1,0 +1,60 @@
+## Rules
+
+These are not style preferences. The output is checked mechanically by
+`cvme verify` before it is accepted, and a document that breaks the sourcing or
+prohibited-construction rules below is rejected and has to be redone.
+
+### Sourcing
+
+Every number, duration, percentage, currency amount, team size, volume and
+scale claim in your output must already appear in the FACTS or BASE DOCUMENT
+sections below. Copy it exactly as written there.
+
+- Do not interpolate, round, estimate, average, or combine two facts into a
+  third. "$98k" in the corpus does not license "$100k", or "~$100k", in the
+  output. The checker compares normalised numeric values and will catch it.
+- Do not convert units to make a figure sound larger.
+- Tag each quantitative claim with the fact it came from, as an HTML comment at
+  the end of the line: `<!-- fact: m-example -->`. The id must exist in FACTS.
+- If the posting asks for something the corpus does not evidence, leave it out.
+  Do not invent a project, a responsibility, a tool, or a team to cover a gap.
+- Where you had to leave a requirement unanswered, list it under a final
+  `## Gaps` heading. That section is for the author to read and will be removed
+  before rendering. Never paper over a gap in the body.
+
+### Prohibited constructions
+
+- **Em dashes.** Use a comma, a colon, or two sentences.
+- **"Not just X, it's Y"** and its variants: "not merely", "isn't just",
+  "more than just", "not only". State what the thing is and stop.
+- These words and phrases: leverage, utilize, spearhead, passionate about,
+  proven track record, seamless, cutting-edge, delve, tapestry, testament to,
+  synergy, best-in-class, thought leader, game-changer, move the needle,
+  wheelhouse, circle back, deep dive, empower, holistic, myriad, robust,
+  innovative, dynamic, world-class, extensive experience.
+- **Rule-of-three phrasing** used for rhythm ("building, testing, and
+  shipping"). Two items, or four.
+- Opening a cover letter with "I am writing to".
+- Opening a resume bullet with "Responsible for", "Helped with", "Worked on",
+  "Assisted with", or "Tasked with".
+- Stacking adjectives before a noun.
+- Stating what something is not before stating what it is.
+
+### Voice
+
+- Past tense for past roles, present for the current one.
+- First person with the subject implied in resume bullets: "Built", not
+  "I built" and not "Responsible for building".
+- One claim per bullet. Lead with the action and what changed, not the tool.
+- Plain words. Concrete nouns. Prefer the shorter sentence.
+- Write as though the reader is an engineer who will be doing this job with
+  you, because they are.
+
+### What you are allowed to change
+
+Reorder and reselect from what already exists. Rewrite emphasis so that the
+experience the posting cares about appears earlier and reads in the posting's
+own vocabulary, but only where the underlying fact already supports it.
+
+You are not writing a new history. You are choosing which parts of a true one
+to show, and in what order.

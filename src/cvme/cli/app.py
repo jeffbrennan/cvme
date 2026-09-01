@@ -11,6 +11,7 @@ from cvme.cli.errors import err_console, handled
 from cvme.cli.init import init
 from cvme.cli.job import app as job_app
 from cvme.cli.render import render
+from cvme.cli.tailor import tailor
 from cvme.cli.verify import verify
 
 app = typer.Typer(
@@ -22,6 +23,7 @@ app = typer.Typer(
 app.command()(handled(init))
 app.command()(handled(render))
 app.command()(handled(verify))
+app.command()(tailor)
 app.add_typer(job_app, name="job")
 
 
@@ -53,6 +55,15 @@ def doctor() -> None:
         mark = "[green]ok[/green]" if found else "[red]missing[/red]"
         err_console.print(f"font {name}: {mark} {detail}")
         ok = ok and found
+
+    # Agents are reported but never fail the check: cvme renders and verifies
+    # without one, and `--agent none` is a supported way to work.
+    from cvme.generate.agent import defaults, probe
+
+    for spec in defaults().values():
+        available, detail = probe(spec)
+        mark = "[green]ok[/green]" if available else "[yellow]absent[/yellow]"
+        err_console.print(f"agent {spec.name}: {mark} {detail}")
 
     if not ok:
         raise typer.Exit(1)

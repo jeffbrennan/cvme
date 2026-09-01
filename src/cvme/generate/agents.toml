@@ -1,0 +1,27 @@
+# Default agent invocations.
+#
+# The argv is configuration rather than code because these CLIs move quickly
+# and their flags are not stable. Override any of these in cvme.toml under
+# [agents.<name>], or add your own.
+#
+# Placeholders substituted at run time:
+#   {prompt}       the assembled prompt text
+#   {prompt_file}  a file holding it
+#   {workdir}      the directory the agent should write into
+
+[agents.codex]
+argv = ["codex", "exec", "--cd", "{workdir}", "-"]
+stdin = true
+
+[agents.opencode]
+argv = ["opencode", "run", "{prompt}"]
+stdin = false
+
+[agents.claude]
+argv = ["claude", "-p", "{prompt}"]
+stdin = false
+
+# Writes the prompt out and stops, so the tool stays useful with any assistant.
+[agents.none]
+argv = []
+stdin = false
