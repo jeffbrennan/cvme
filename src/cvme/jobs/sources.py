@@ -4,11 +4,9 @@ Ordered by how good the result is and how likely it is to keep working, not by
 convenience. See docs/job-sources.md for the research behind the order, in
 particular why there is no anonymous LinkedIn HTTP tier.
 
-Tier 3, a browser driving the user's own logged-in profile, is the only way
-LinkedIn works now. It is deliberately not implemented here: it cannot be
-exercised from an environment that has no network access to the sites, and a
-tier that has never once run against the real thing is worse than an honest
-error telling you to paste the description.
+Public LinkedIn and Indeed HTML is parsed when it is available. A browser
+driving the user's logged-in profile is still needed when either site returns
+a login or challenge page; cvme reports that honestly rather than bypassing it.
 """
 
 from __future__ import annotations
@@ -20,7 +18,7 @@ from pathlib import Path
 import httpx
 
 from cvme.errors import CvmeError
-from cvme.jobs import ats, jsonld
+from cvme.jobs import ats, jsonld, sitehtml
 from cvme.jobs.cache import Cache
 from cvme.jobs.htmltext import main_text
 from cvme.jobs.models import JobPosting
@@ -79,12 +77,16 @@ class Fetcher:
                 raise FetchError(str(exc)) from exc
 
         html = self._get(url, suffix=".html")
-        if posting := jsonld.extract(html, url, source=_site(url)):
+        site = _site(url)
+        if posting := jsonld.extract(html, url, source=site):
+            return posting
+        if posting := sitehtml.extract(html, url, site):
             return posting
 
         raise FetchError(
-            f"no JSON-LD job posting found at {url}.\n"
-            "  This site needs a logged-in browser, which cvme does not drive yet.\n"
+            f"no job description found at {url}.\n"
+            "  The site may require a logged-in browser or may have changed "
+            "its markup.\n"
             "  Open the posting, save the page, and use:\n"
             f"    cvme job add --html saved.html --url {url}\n"
             "  or paste the description:\n"

@@ -53,6 +53,8 @@ Capture a posting:
 
 ```bash
 uv run cvme job fetch https://boards.greenhouse.io/acme/jobs/4012345
+uv run cvme job fetch 'https://www.indeed.com/viewjob?jk=abc123'
+uv run cvme job fetch https://www.linkedin.com/jobs/view/123
 uv run cvme job add --html saved.html --url https://www.linkedin.com/jobs/view/123
 pbpaste | uv run cvme job add --stdin --url https://x.example/1 --title T --company C
 ```
