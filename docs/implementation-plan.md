@@ -14,13 +14,16 @@ compiles a resume-shaped page with right-aligned dates, bold/italic runs, a
 size hierarchy, and section rules, in-process, with no LaTeX and no external
 binary.
 
-Two things could **not** be verified from the authoring environment because its
-egress proxy blocks the domains:
+The existing resume was then supplied directly, its layout measured, and a
+Typst template built that **reproduces it to within ~1pt** on every section
+header, right-aligned date and line-spacing measurement. The recovered spec is
+§12; the working template is `spikes/match/`.
 
-| Blocked | Consequence |
-|---|---|
-| `jeffbrennan.dev` (the reference resume PDF) | The Typst template's exact metrics are a best guess. It is fully config-driven, so matching your real layout is a tuning exercise, not a rewrite. See §11. |
-| `linkedin.com`, `indeed.com`, `developers.openai.com`, `opencode.ai` | Scraper selectors and agent-CLI flags are designed to be **configuration, not code** (§6, §7), so drift is a TOML edit. |
+One thing could not be verified from the authoring environment, because its
+egress proxy blocks the domains: `linkedin.com`, `indeed.com`,
+`developers.openai.com`, `opencode.ai`. Scraper selectors and agent-CLI flags
+are therefore designed to be **configuration, not code** (§6, §7), so drift is
+a TOML edit rather than a patch.
 
 ---
 
@@ -53,6 +56,15 @@ Three properties of that signature matter to this design:
   on what the developer happens to have installed.
 - **`timestamp`** — pin it, and PDF bytes become reproducible, which is what
   makes golden-file tests possible (§9).
+
+One licensing consequence, found while matching the reference: the current
+resume sets its body in **Calibri**, which is proprietary to Microsoft and
+cannot be vendored. **Carlito** is a metric-compatible OFL clone, so
+substituting it preserves measure and line breaking with no visible change.
+The name is set in **Fira Code SemiBold**, which is OFL and ships as-is. Both
+go in `render/fonts/` from full upstream releases — not from webfont subsets,
+whose partial glyph coverage causes silent fallback (the reference's ▪ bullet
+hit exactly this).
 
 ### 1.2 Markdown is the authoring surface; a typed IR is the contract
 
@@ -147,55 +159,66 @@ the generator prompt, so the model and the parser are never out of sync.
 ```markdown
 ---
 name: Jeff Brennan
-headline: Data Engineer
 contact:
-  - jeffbrennan10@gmail.com
-  - jeffbrennan.dev
-  - github.com/jeffbrennan
-  - Boston, MA
+  - text: jeffbrennan10@gmail.com
+    url: mailto:jeffbrennan10@gmail.com
+  - text: jeffbrennan.dev
+    url: https://jeffbrennan.dev
 ---
+
+## Summary
+
+Careful preparation of public health data improves the lives of underserved
+communities. I have six years of experience working at every level of the
+healthcare data lifecycle. <!-- fact: s-experience-years -->
 
 ## Experience
 
-### Acme Data | Boston, MA
-#### Senior Data Engineer | Jan 2023 – Present
+### Data Engineer @ Medisolv | Jul 2023 – Present
 
-- Rebuilt the ingestion path in PySpark, cutting the nightly window from
-  6h to 40m. <!-- fact: m-ingest-window -->
-- Consolidated 40 job clusters onto shared pools. <!-- fact: m-databricks-spend -->
+- Oversee the ingestion and transformation of patient data (10B+ records/week,
+  150TB+ data lake) for hundreds of hospital clients <!-- fact: m-ingest-scale -->
+- Created a CLI to generate Databricks Workflows - enabling our team to
+  programmatically tailor cluster configurations for clients with thousands to
+  millions of patients
 
-### Previous Co | Remote
-#### Data Engineer | Jun 2020 – Dec 2022
+### Data Analyst @ New York-Presbyterian | Dec 2020 – Jul 2023
 
-- ...
-
-## Skills
-
-- **Languages:** Python, SQL, Scala
-- **Platforms:** Databricks, Snowflake, dbt
+- Managed the calculation, tracking, and reporting of quality metrics, leading
+  to $20M+ in savings <!-- fact: m-nyp-savings -->
 
 ## Education
 
-### Boston University | Boston, MA
-#### B.A. Economics | 2016
+### UTHealth Houston
+#### Master of Science - Major in Epidemiology, Minor in Biostatistics | May 2020
+
+Certificate: Data Science
+
+## Skills
+
+- **Languages**: Python (advanced), SQL (advanced), R (advanced)
+- **Data Stack**: Transformation (pyspark, dbt, polars); Orchestration (azure
+  data factory, airflow, dagster)
 ```
 
 Rules, in full:
 
 | Construct | Meaning |
 |---|---|
-| YAML frontmatter | Document metadata: name, headline, contact list. |
-| `## Heading` | Section. Renders as the ruled small-caps header. |
-| `### Left \| Right` | Entry header. Text after `\|` is **right-aligned** on the same line. |
-| `#### Left \| Right` | Entry subheader, same split. Conventionally role and dates. |
-| `- item` | Bullet. Nesting one level deep is supported. |
-| `**b**` `*i*` `` `c` `` `[t](u)` | Standard inline markdown; converted to Typst markup. |
+| YAML frontmatter | Name and the contact list; each contact may carry a `url`, rendered as an underlined link. |
+| `## Heading` | Section. Uppercased, bold, 12pt, no rule (§12). |
+| `### Left \| Right` | Entry header line. Text after `\|` is **right-aligned** to the right margin on the same line. |
+| `### Role @ Org \| Dates` | Within `## Experience`, ` @ ` splits the left side so the template can set the role bold and the org regular, as `**Role** – Org`. |
+| `#### Left \| Right` | Second entry line, same split. Used by Education for `degree \| date`. |
+| Plain paragraph under an entry | Follow-on line, unstyled (`Certificate: Data Science`). |
+| `- item` | Bullet. Tight, hanging indent, drawn square marker. |
+| `**b**` `*i*` `` `c` `` `[t](u)` | Standard inline markdown, converted to Typst markup. |
 | `<!-- fact: <id> -->` | Provenance tag consumed by `cvme verify` (§8) and stripped from output. |
 | `---` (rule) | Explicit page break. |
 
-The pipe is the only invention. Everything a section needs that is not
-entry-shaped (Skills) is plain bullets, which the template renders without the
-entry chrome. A literal pipe is escaped `\|`.
+The pipe is the only real invention, and ` @ ` is a convenience within it.
+Everything not entry-shaped — Summary, Skills — is ordinary markdown, which the
+template renders without entry chrome. Literal `|` and `@` escape as `\|`, `\@`.
 
 ### 3.2 `cover_letter.md`
 
@@ -289,7 +312,12 @@ grid(columns: (1fr, auto), align: (left, right),
   text(weight: "bold", size: style.entry_size)[#entry.right])
 ```
 
-Confirmed working in the spike.
+Confirmed working in the spike, and used throughout `spikes/match/resume.typ`
+to place dates, degree dates and the contact line.
+
+The bullet glyph is drawn rather than typed — `box(width: 3.2pt, height: 3.2pt,
+fill: black)` — so it never depends on a font shipping ▪ or on the reference's
+Wingdings mapping.
 
 ### 5.2 Page-count autofit
 
@@ -532,19 +560,20 @@ no untyped defs, CI-enforced.
 | **M5** | Prompt suite, agent adapter, `cvme tailor` end-to-end | A tailored variant passes verify unassisted |
 | **M6** | `cvme apply <url>` one-shot, `cvme init` scaffolding, README | `cvme apply <url>` produces a reviewed application dir |
 
-M1 is the milestone that matters. It is worth spending time tuning the template
-against your existing PDF before anything else is built, because every later
-milestone renders through it.
+M1 is the milestone that matters, and it is already part-built: `spikes/match/`
+renders your existing resume to spec (§12). What remains in M1 is the markdown
+parser feeding that template, rather than the template itself.
 
 ---
 
 ## 11. Open questions
 
-1. **The reference layout.** I could not fetch
-   `jeffbrennan.dev/jeff_brennan_data_engineer_resume.pdf` — blocked by this
-   environment's egress proxy. To match it in M1, the useful inputs are: the PDF
-   itself committed to the repo, or the font family, section order, and whether
-   dates sit on the company line or the role line.
+1. ~~The reference layout.~~ **Resolved** — measured and reproduced; see §12.
+   One judgement call is left in it: the reference has small inconsistencies
+   (one company name set at 11.48pt instead of 11.01pt, a bullet group indented
+   32.4pt where the rest use 32.4pt from a different origin) that look like Word
+   artifacts rather than intent. The template normalises them. Say if any were
+   deliberate.
 2. **Cover-letter length control.** Resumes autofit by tightening. Letters
    cannot — shrinking a letter to fit is worse than cutting a paragraph. Propose:
    letters *fail* over budget with a word-count delta and let you cut. Confirm.
@@ -557,3 +586,74 @@ milestone renders through it.
    separate private directory (`--profile <dir>`, or `cvme.toml` discovery from
    cwd). The alternative — documents committed here — is fine if the repo stays
    private. Confirm before M0.
+
+---
+
+## 12. Recovered reference spec
+
+Measured from the supplied PDF with `pdfplumber` (character positions, font
+names and sizes), and reproduced in `spikes/match/resume.typ`. This is the
+`standard` preset's starting point.
+
+### Page
+
+| Property | Value |
+|---|---|
+| Paper | US Letter, 612 × 792pt |
+| Margins | left/right 0.8in (57.6pt), top/bottom 0.5in |
+| Length | 1 page |
+
+### Type scale
+
+| Role | Font | Size | Weight |
+|---|---|---|---|
+| Name | Fira Code | 19.5pt | SemiBold (600) |
+| Section header | Calibri → **Carlito** | 12pt | Bold, uppercased |
+| Body, bullets, summary | Carlito | 11pt | Regular |
+| Job title, school, degree, skill label | Carlito | 11pt | Bold |
+| Dates | Carlito | 10pt | Bold |
+
+**There are no horizontal rules.** The only rectangles in the reference are
+the underlines on the two contact hyperlinks. Section headers are separated by
+whitespace alone — worth stating, because ruled headers are the default
+assumption for this kind of layout and the first spike wrongly used them.
+
+### Layout
+
+| Element | Treatment |
+|---|---|
+| Header | Name left at the margin, contact right-aligned to the right margin, **same line**, bottom-aligned across the size difference. Contacts pipe-separated, each an underlined link. |
+| Entry header | `**Role** – Company` left; dates bold 10pt hard right. One line. |
+| Education | School bold on its own line; degree bold on the next line **with the date right-aligned against the degree, not the school**; optional plain follow-on lines. |
+| Bullets | Marker at +18pt from margin, text at +32.4pt (hanging indent; wrapped lines align to the text edge). |
+| Skills | Bullets, `**Label**: body`. |
+
+### Vertical rhythm
+
+| Gap | Value |
+|---|---|
+| Line to line (11pt body) | 13.44pt baseline-to-baseline |
+| Between bullets | same as line — bullets are tight, no extra space |
+| Before a section header | ~7pt |
+| After a section header | ~11pt |
+| Before an entry | ~6.7pt |
+| Header block to first section | ~10pt |
+
+In Typst this comes out as `par(leading: 0.73em)` with a tight list; the
+measured result is 13.4–13.5pt against the reference's 13.4–13.5pt.
+
+### Verification
+
+`spikes/match/compare.py` measures a rendered PDF against the reference and
+reports header positions, line-delta distribution, right-edge alignment and
+page count. Current deltas:
+
+| Measure | Reference | Template |
+|---|---|---|
+| `SUMMARY` header y | 64.2 | 65.3 |
+| Right-aligned date edge | 554.3 | 554.4 |
+| Line delta (mode) | 13.4 / 13.5 | 13.4 / 13.5 |
+| Pages | 1 | 1 |
+
+Comparing geometry rather than PDF bytes is what makes this a usable
+regression test, and §9's golden-file strategy is built on it.
