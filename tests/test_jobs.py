@@ -244,15 +244,22 @@ def test_an_http_error_is_reported_not_raised_raw(tmp_path: Path) -> None:
 
 def test_the_second_fetch_is_served_from_cache(tmp_path: Path) -> None:
     calls: list[str] = []
+    rate_checks: list[None] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         calls.append(str(request.url))
         return httpx.Response(200, text=fixture("greenhouse.json"))
 
-    fetcher = _fetcher(tmp_path, handler)
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    fetcher = Fetcher(
+        root=tmp_path,
+        client=client,
+        before_request=lambda: rate_checks.append(None),
+    )
     fetcher.fetch(GREENHOUSE_URL)
     fetcher.fetch(GREENHOUSE_URL)
     assert len(calls) == 1
+    assert len(rate_checks) == 1, "cached reads must not wait on the limiter"
 
     match = ats.detect(GREENHOUSE_URL)
     assert match is not None

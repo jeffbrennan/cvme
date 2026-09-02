@@ -44,6 +44,10 @@ exclude_keywords = []
 locations = []
 remote_only = false
 minimum_score = 0
+# Outbound searches and detail fetches are sequential and at least this far
+# apart. At most this many detail postings are attempted per run.
+request_interval_seconds = 5.0
+max_detail_requests_per_run = 10
 
 # Add one or more searches, for example:
 # [[search.sources]]

@@ -84,6 +84,8 @@ class SearchConfig(BaseModel):
     locations: list[str] = Field(default_factory=list)
     remote_only: bool = False
     minimum_score: int = Field(default=0, ge=0)
+    request_interval_seconds: float = Field(default=5.0, ge=0, le=60)
+    max_detail_requests_per_run: int = Field(default=10, ge=1, le=100)
 
 
 class Config(BaseModel):

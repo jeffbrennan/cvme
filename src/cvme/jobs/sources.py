@@ -12,6 +12,7 @@ a login or challenge page; cvme reports that honestly rather than bypassing it.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -41,6 +42,7 @@ class Fetcher:
     root: Path
     client: httpx.Client | None = None
     use_cache: bool = True
+    before_request: Callable[[], None] | None = None
 
     def __post_init__(self) -> None:
         self.cache = Cache(self.root)
@@ -54,6 +56,8 @@ class Fetcher:
             timeout=REQUEST_TIMEOUT,
         )
         try:
+            if self.before_request is not None:
+                self.before_request()
             response = client.get(url)
             response.raise_for_status()
         except httpx.HTTPError as exc:

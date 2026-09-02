@@ -11,6 +11,7 @@ from cvme.config import SearchConfig, SearchSourceConfig
 from cvme.jobs.discovery import DiscoveredJob, identity, parse_results, search_url
 from cvme.jobs.match import evaluate
 from cvme.jobs.models import JobPosting
+from cvme.jobs.rate import RateLimiter
 from cvme.jobs.store import JobStore
 
 runner = CliRunner()
@@ -82,6 +83,27 @@ def test_search_urls_carry_recency_and_remote_filters() -> None:
     assert indeed_query["start"] == ["10"]
 
 
+def test_rate_limiter_spaces_request_starts_without_real_sleep() -> None:
+    now = 100.0
+    sleeps: list[float] = []
+
+    def clock() -> float:
+        return now
+
+    def sleep(seconds: float) -> None:
+        nonlocal now
+        sleeps.append(seconds)
+        now += seconds
+
+    limiter = RateLimiter(5.0, clock=clock, sleep=sleep)
+    limiter.wait()
+    now += 2.0
+    limiter.wait()
+    now += 7.0
+    limiter.wait()
+    assert sleeps == [3.0]
+
+
 def test_company_and_other_preferences_are_hard_filters() -> None:
     config = SearchConfig(
         blocked_companies=["Raytheon", "Palantir"],
@@ -137,7 +159,9 @@ def test_digest_filters_blocks_and_writes_only_new_candidates(
         ),
     ]
     digest_module = importlib.import_module("cvme.cli.digest")
-    monkeypatch.setattr(digest_module, "discover", lambda source: found)
+    monkeypatch.setattr(
+        digest_module, "discover", lambda source, limiter=None: found
+    )
 
     calls: list[str] = []
 
@@ -161,3 +185,37 @@ def test_digest_filters_blocks_and_writes_only_new_candidates(
     assert second.exit_code == 0, second.output
     assert "0 new, 2 already seen" in second.output
     assert calls == ["https://x.test/good"]
+
+
+def test_configured_detail_cap_leaves_excess_jobs_queued(
+    tmp_path: Path, monkeypatch
+) -> None:
+    runner.invoke(app, ["init", str(tmp_path)])
+    config_path = tmp_path / "cvme.toml"
+    config_path.write_text(
+        config_path.read_text().replace(
+            "max_detail_requests_per_run = 10", "max_detail_requests_per_run = 1"
+        )
+        + '\n[[search.sources]]\nsite = "linkedin"\nquery = "engineer"\n'
+    )
+    found = [
+        DiscoveredJob(f"https://x.test/{number}", "linkedin", "Engineer", "Acme")
+        for number in range(2)
+    ]
+    digest_module = importlib.import_module("cvme.cli.digest")
+    monkeypatch.setattr(
+        digest_module, "discover", lambda source, limiter=None: found
+    )
+    calls: list[str] = []
+
+    def fake_fetch(self, url: str) -> JobPosting:
+        calls.append(url)
+        return JobPosting(url=url, title="Engineer", company="Acme", description="d")
+
+    monkeypatch.setattr(digest_module.Fetcher, "fetch", fake_fetch)
+    result = runner.invoke(app, ["digest", "--config", str(config_path)])
+    assert result.exit_code == 0, result.output
+    assert len(calls) == 1
+    assert "detail request limit reached (1)" in result.output
+    with JobStore(tmp_path / ".cvme" / "jobs.sqlite3") as store:
+        assert len(store.pending()) == 1

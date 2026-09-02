@@ -15,6 +15,7 @@ import httpx
 from selectolax.parser import HTMLParser, Node
 
 from cvme.config import SearchSourceConfig
+from cvme.jobs.rate import RateLimiter
 from cvme.jobs.sources import REQUEST_TIMEOUT, USER_AGENT, FetchError
 
 _LINKEDIN_ID = re.compile(r"/jobs/view/(?:[^/?#]*-)?(\d+)")
@@ -78,7 +79,9 @@ def search_url(source: SearchSourceConfig, page: int) -> str:
 
 
 def discover(
-    source: SearchSourceConfig, client: httpx.Client | None = None
+    source: SearchSourceConfig,
+    client: httpx.Client | None = None,
+    limiter: RateLimiter | None = None,
 ) -> list[DiscoveredJob]:
     """Fetch and parse all configured result pages for one search."""
     owned = client is None
@@ -92,6 +95,8 @@ def discover(
         for page in range(source.pages):
             url = search_url(source, page)
             try:
+                if limiter is not None:
+                    limiter.wait()
                 response = active.get(url)
                 response.raise_for_status()
             except httpx.HTTPError as exc:

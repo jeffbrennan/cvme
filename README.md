@@ -84,6 +84,8 @@ exclude_keywords = ["security clearance"]
 locations = ["New York, NY"]
 remote_only = false
 minimum_score = 2
+request_interval_seconds = 5.0
+max_detail_requests_per_run = 10
 
 [[search.sources]]
 site = "linkedin"
@@ -103,6 +105,10 @@ posted_within_days = 7
 Set `remote = true` on a source to request remote-only results from that board.
 For “remote or NYC,” configure one NYC source and a second remote source; the
 database deduplicates jobs returned by both.
+
+Every outbound search or uncached detail fetch shares the configured minimum
+interval. The detail-request cap leaves excess postings queued for the next
+run; `--limit` can lower that cap for a one-off run but cannot raise it.
 
 ```bash
 cvme digest                 # discover, parse, filter, and rank new postings

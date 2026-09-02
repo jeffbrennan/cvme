@@ -12,6 +12,7 @@ from cvme.config import Config, find_config, load_config
 from cvme.errors import ConfigError, CvmeError
 from cvme.jobs.discovery import discover
 from cvme.jobs.match import blocked_company, evaluate
+from cvme.jobs.rate import RateLimiter
 from cvme.jobs.sources import Fetcher, FetchError
 from cvme.jobs.store import JobStore
 from cvme.jobs.writer import write
@@ -50,6 +51,7 @@ def digest(
         raise ConfigError("no [[search.sources]] configured in cvme.toml")
 
     candidates: list[tuple[str, str, str, int, str, Path]] = []
+    limiter = RateLimiter(config.search.request_interval_seconds)
     with JobStore(config.search.database) as store:
         if retry_errors:
             typer.echo(f"retrying {store.retry_errors()} failed posting(s)")
@@ -57,7 +59,7 @@ def digest(
         if not no_search:
             for source in config.search.sources:
                 try:
-                    jobs = discover(source)
+                    jobs = discover(source, limiter=limiter)
                 except FetchError as exc:
                     typer.echo(str(exc), err=True)
                     continue
@@ -67,8 +69,12 @@ def digest(
                     f"{seen} already seen"
                 )
 
-        fetcher = Fetcher(root=config.root)
-        pending = store.pending(limit)
+        fetcher = Fetcher(root=config.root, before_request=limiter.wait)
+        request_limit = config.search.max_detail_requests_per_run
+        if limit is not None:
+            request_limit = min(request_limit, limit)
+        pending = store.pending()
+        detail_requests = 0
         for job in pending:
             if reason := blocked_company(job.company, config.search):
                 store.decide(
@@ -81,6 +87,13 @@ def digest(
                     score=0,
                 )
                 continue
+            if detail_requests >= request_limit:
+                typer.echo(
+                    f"detail request limit reached ({request_limit}); "
+                    "remaining postings stay queued"
+                )
+                break
+            detail_requests += 1
             try:
                 posting = fetcher.fetch(job.url)
             except CvmeError as exc:
