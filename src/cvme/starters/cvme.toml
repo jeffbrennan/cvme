@@ -31,6 +31,37 @@ min_bullets = 2
 max_bullets = 5
 max_bullet_words = 32
 
+# Job discovery is opt-in. Each source is searched whenever `cvme digest` runs;
+# the SQLite database remembers every result and its filter decision, so jobs
+# do not reappear on later runs.
+[search]
+database = ".cvme/jobs.sqlite3"
+blocked_companies = ["Raytheon", "Palantir"]
+preferred_titles = []
+excluded_titles = []
+include_keywords = []
+exclude_keywords = []
+locations = []
+remote_only = false
+minimum_score = 0
+
+# Add one or more searches, for example:
+# [[search.sources]]
+# site = "linkedin"
+# query = "data engineer"
+# location = "New York, NY"
+# pages = 1
+# remote = false
+# posted_within_days = 7
+#
+# [[search.sources]]
+# site = "indeed"
+# query = "data engineer"
+# location = "New York, NY"
+# pages = 1
+# remote = false
+# posted_within_days = 7
+
 # Override an agent's invocation when its flags change, or add your own:
 # [agents.codex]
 # argv = ["codex", "exec", "--cd", "{workdir}", "-"]

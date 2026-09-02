@@ -47,6 +47,7 @@ def test_paths_resolve_against_the_config_not_the_cwd(project: Path) -> None:
     assert config.documents["resume"].path == project / "base" / "resume.md"
     assert config.project.output_dir == project / "build"
     assert config.project.facts == [project / "facts" / "skills.md"]
+    assert config.search.database == project / ".cvme" / "jobs.sqlite3"
 
 
 def test_absolute_paths_are_left_alone(tmp_path: Path) -> None:

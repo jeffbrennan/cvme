@@ -7,6 +7,7 @@ import sys
 import typer
 
 from cvme import __version__
+from cvme.cli.digest import digest
 from cvme.cli.errors import err_console, handled
 from cvme.cli.init import init
 from cvme.cli.job import app as job_app
@@ -23,6 +24,7 @@ app = typer.Typer(
 app.command()(handled(init))
 app.command()(handled(render))
 app.command()(handled(verify))
+app.command()(digest)
 app.command()(tailor)
 app.add_typer(job_app, name="job")
 

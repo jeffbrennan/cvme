@@ -9,6 +9,19 @@ uv run cvme init my-docs    # scaffold a project to fill in
 cd my-docs && uv run cvme render resume
 ```
 
+For a standalone install and a workspace outside the source checkout:
+
+```bash
+uv tool install .            # from this checkout (or `uv tool install cvme` once published)
+cvme init ~/Documents/job_hunt/2026
+cd ~/Documents/job_hunt/2026
+cvme render resume
+```
+
+The generated application bundles live under `applications/` in that
+workspace by default. Set `project.applications_dir` in `cvme.toml` to put them
+elsewhere; absolute paths and paths relative to the config file both work.
+
 ## Status
 
 Under construction, milestone by milestone. See
@@ -58,6 +71,53 @@ uv run cvme job fetch https://www.linkedin.com/jobs/view/123
 uv run cvme job add --html saved.html --url https://www.linkedin.com/jobs/view/123
 pbpaste | uv run cvme job add --stdin --url https://x.example/1 --title T --company C
 ```
+
+Search LinkedIn and Indeed in bulk and digest only postings not seen before:
+
+```toml
+[search]
+blocked_companies = ["Raytheon", "Palantir"]
+preferred_titles = ["data engineer", "platform engineer"]
+excluded_titles = ["manager", "director"]
+include_keywords = ["python", "spark", "databricks"]
+exclude_keywords = ["security clearance"]
+locations = ["New York, NY"]
+remote_only = false
+minimum_score = 2
+
+[[search.sources]]
+site = "linkedin"
+query = "data engineer"
+location = "New York, NY"
+pages = 2
+posted_within_days = 7
+
+[[search.sources]]
+site = "indeed"
+query = "data engineer"
+location = "New York, NY"
+pages = 2
+posted_within_days = 7
+```
+
+Set `remote = true` on a source to request remote-only results from that board.
+For “remote or NYC,” configure one NYC source and a second remote source; the
+database deduplicates jobs returned by both.
+
+```bash
+cvme digest                 # discover, parse, filter, and rank new postings
+cvme digest --no-search     # process queued, unparsed postings only
+cvme digest --retry-errors  # retry pages that were unavailable last time
+```
+
+Hard exclusions (company, title, keyword, location, and remote-only) are
+applied before ranking. Preferred titles score three points; matching keywords,
+an allowed location, and remote work score one each. Accepted postings are
+written to `jobs/`, ready for `cvme tailor`. All identities and decisions live
+in `.cvme/jobs.sqlite3`, so a posting remains deduplicated even when its search
+URL or rank changes. Public search/detail pages can still return login or
+challenge pages; those are recorded as errors and can be retried after using a
+saved/manual capture path.
 
 Tailor to a posting. The agent writes the documents, cvme verifies them, and
 only then renders:

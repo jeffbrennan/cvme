@@ -41,5 +41,6 @@ def init(
     for path in written:
         typer.echo(f"  created {path}")
     typer.echo(
-        f"\nEdit {directory / 'base' / 'resume.md'}, then:\n  cvme render resume"
+        f"\nYour cvme workspace is {directory.resolve()}\n"
+        f"Edit {directory / 'base' / 'resume.md'}, then:\n  cvme render resume"
     )

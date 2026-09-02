@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -56,6 +56,36 @@ class GenerateConfig(BaseModel):
     max_bullet_words: int = 32
 
 
+class SearchSourceConfig(BaseModel):
+    """One repeatable search on a supported job board."""
+
+    model_config = {"extra": "forbid"}
+
+    site: Literal["linkedin", "indeed"]
+    query: str
+    location: str = ""
+    pages: int = Field(default=1, ge=1, le=10)
+    remote: bool = False
+    posted_within_days: int | None = Field(default=None, ge=1, le=30)
+
+
+class SearchConfig(BaseModel):
+    """Discovery, filtering, and ranking preferences for ``cvme digest``."""
+
+    model_config = {"extra": "forbid"}
+
+    database: Path = Path(".cvme/jobs.sqlite3")
+    sources: list[SearchSourceConfig] = Field(default_factory=list)
+    blocked_companies: list[str] = Field(default_factory=list)
+    preferred_titles: list[str] = Field(default_factory=list)
+    excluded_titles: list[str] = Field(default_factory=list)
+    include_keywords: list[str] = Field(default_factory=list)
+    exclude_keywords: list[str] = Field(default_factory=list)
+    locations: list[str] = Field(default_factory=list)
+    remote_only: bool = False
+    minimum_score: int = Field(default=0, ge=0)
+
+
 class Config(BaseModel):
     """A loaded ``cvme.toml``, with every path made absolute."""
 
@@ -65,6 +95,7 @@ class Config(BaseModel):
     project: ProjectConfig = Field(default_factory=ProjectConfig)
     documents: dict[str, DocumentConfig] = Field(default_factory=dict)
     generate: GenerateConfig = Field(default_factory=GenerateConfig)
+    search: SearchConfig = Field(default_factory=SearchConfig)
     #: Raw [agents.<name>] tables, layered over the packaged defaults at use.
     agents: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
@@ -109,6 +140,7 @@ def load_config(path: Path) -> Config:
     config.project.jobs_dir = _resolve(root, config.project.jobs_dir)
     config.project.applications_dir = _resolve(root, config.project.applications_dir)
     config.project.facts = [_resolve(root, f) for f in config.project.facts]
+    config.search.database = _resolve(root, config.search.database)
     for document in config.documents.values():
         document.path = _resolve(root, document.path)
     return config
