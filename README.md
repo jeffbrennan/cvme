@@ -38,6 +38,7 @@ Under construction, milestone by milestone. See
 | M5 — agent-driven tailoring | done |
 | M7 — `cvme convert`: an existing PDF resume back into markdown | done |
 | M8 — `cvme ats`: check the rendered PDF the way a parser reads it | done |
+| M9 — `cvme prep` and `cvme apps`: one directory per posting, tracked | done |
 
 ## Design
 
@@ -162,6 +163,95 @@ uv run cvme tailor northwind --dry-run          # print the prompt, change nothi
 uv run cvme tailor northwind --agent none       # write the prompt to paste elsewhere
 ```
 
+## One posting, one directory
+
+`cvme prep` runs the whole pipeline against a single posting: capture it,
+score how well your corpus answers it, tailor every document, verify, render,
+and write the background to read before the interview.
+
+```bash
+cvme prep https://boards.greenhouse.io/acme/jobs/4012345
+cvme prep 'https://www.linkedin.com/jobs/view/123' --fit-only   # score it, stop
+pbpaste | cvme prep 'https://www.linkedin.com/jobs/view/123' --stdin \
+    --title 'Staff Data Engineer' --company Acme
+cvme prep northwind --note 'shorter, led with the platform work'
+```
+
+It produces, or adds a version to:
+
+```
+hunts/2026/01_northwind-health_staff-data-engineer_2026-01-04/
+    posting.md    the posting as captured, unedited
+    report.md     the computed fit score, then the written background
+    apps/
+        index.md  every version, and how each differs from the one before
+        cv1.md  cv1.pdf  cover_letter1.md  cover_letter1.pdf
+        cv2.md  cv2.pdf  cover_letter2.md  cover_letter2.pdf
+```
+
+Running it again on the same posting adds version 2 beside version 1 rather
+than overwriting it, because the comparison worth having is against what you
+nearly sent. `--new` forces a separate hunt instead. The filename stem comes
+from `hunt_stem` on the document, so `[documents.base]` can still be filed as
+`cv1.md`.
+
+### The fit score
+
+The score is computed, and it shows its working. A model asked to rate a fit
+returns a number that reads well and cannot be checked, which is the failure
+`cvme verify` exists to catch everywhere else.
+
+The posting is read for terms from a packaged vocabulary of tools, practices
+and domains, weighted by how often the posting names each one, and those terms
+are looked for in your fact corpus and base documents. Skills carry 60 points,
+the title 15, the stated years of experience 15, and the location 10. A posting
+your own filters exclude scores zero and says which filter did it. Extend the
+vocabulary for your field under `[fit.extra_terms]` in `cvme.toml`.
+
+What that buys is the second half of `report.md`: which of the posting's own
+requirements your corpus answers, and which it does not.
+
+```
+**Fit 58/100 (fair)**
+
+| component | earned | of | why |
+|---|---|---|---|
+| skills | 30 | 60 | 7/14 terms, weighted by mention count |
+| title | 15 | 15 | matches 'data engineer' |
+| experience | 15 | 15 | asks 6y, corpus evidences 7y |
+| location | 5 | 10 | no preferred locations set |
+
+**Answered.** databricks (2), airflow, data quality, kubernetes, python, sql
+
+**Not answered.** claims (2), delta lake, healthcare, pyspark, rust, terraform
+```
+
+The rest of the report is written by the agent from the posting and your
+corpus, with anything it recalls rather than reads kept under its own
+`## From general knowledge (unverified)` heading. The score is never asked of
+the agent, so nothing in the report asserts a number that cannot be recomputed.
+
+### Tracking what you have not sent
+
+```bash
+cvme apps list                       # prepared and unsent, best fit first
+cvme apps list --status applied,interviewing
+cvme apps list --all
+cvme apps show northwind             # every version, and what changed between them
+cvme apps submit northwind           # sent: file it under applied/
+cvme apps status northwind interviewing --note 'call tuesday'
+cvme apps status northwind rejected
+```
+
+Statuses are `prepared`, `applied`, `interviewing`, `offer`, `rejected` and
+`withdrawn`. Refiling moves the whole directory, so what is still sitting at
+the top level of the year is exactly what is still unsent. The index over it
+lives in `.cvme/jobs.sqlite3` beside job discovery, because a posting found by
+`cvme digest` and an application prepared from it are the same job.
+
+A reference can be a full slug, part of one, or a company name; where it is
+ambiguous the command says what it could have meant rather than guessing.
+
 Check the artefact rather than the source. `cvme ats` renders the document,
 reads the PDF back with the converter, and reports every place where the
 machine reading differs from what was written:
@@ -226,7 +316,7 @@ fails silently, and you find out after you have applied.
 
 Exit codes are distinct so a script can tell failures apart: `1` bad input,
 `2` page budget, `3` verification and `cvme ats`, `4` fetch, `5` agent,
-`6` conversion.
+`6` conversion, `7` a missing or inconsistent hunt.
 
 `cvme tailor` treats verification as a gate, not a report. A document that
 invents a metric is never rendered, and any PDF from an earlier run is removed
@@ -242,3 +332,5 @@ Job postings are untrusted input. Their text is wrapped in a per-run random
 boundary with instructions to treat it only as reference data. Automated agents
 run in a temporary staging directory containing only the assembled prompt, and
 their draft is copied to the application directory only after the process exits.
+The same holds for the report: the agent sees the posting, the corpus, and
+nothing else, and it has no network access to check anything it recalls.

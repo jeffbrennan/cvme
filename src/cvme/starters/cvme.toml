@@ -8,12 +8,20 @@
 output_dir = "out"
 jobs_dir = "jobs"
 applications_dir = "applications"
+# One directory per posting, numbered within its year. `cvme prep` writes here
+# and `cvme apps` moves directories between statuses inside it.
+hunts_dir = "hunts"
 facts = ["facts/skills.md", "facts/metrics.md"]
 
 [documents.resume]
 path = "base/resume.md"
 template = "resume"
 style = "standard"
+# The filename stem inside a hunt's apps/ directory, so versions are cv1.md,
+# cv2.md rather than resume1.md. Defaults to the document's name.
+hunt_stem = "cv"
+# Set tailor = false on a document that should never be generated, such as an
+# archive you keep for the fact corpus.
 
 [documents.resume.overrides]
 max_pages = 1
@@ -48,6 +56,11 @@ minimum_score = 0
 # apart. At most this many detail postings are attempted per run.
 request_interval_seconds = 5.0
 max_detail_requests_per_run = 10
+
+# The fit score is computed over a packaged vocabulary of tools and practices.
+# Add the terms your own field uses, mapping each to the spellings that mean it.
+[fit.extra_terms]
+# "quality measures" = ["hedis", "star ratings"]
 
 # Add one or more searches, for example:
 # [[search.sources]]

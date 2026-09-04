@@ -34,6 +34,13 @@ class DocumentConfig(BaseModel):
     template: str = "resume"
     style: str = "standard"
     overrides: dict[str, Any] = Field(default_factory=dict)
+    #: Whether ``cvme tailor`` and ``cvme prep`` produce a version of this
+    #: document by default. An archive that is never sent sets this false.
+    tailor: bool = True
+    #: The filename stem used inside a hunt's ``apps/`` directory. Defaults to
+    #: the document's name, so a document called ``base`` can still be filed
+    #: as ``cv1.md`` where that is what you call it.
+    hunt_stem: str = ""
 
 
 class ProjectConfig(BaseModel):
@@ -42,6 +49,7 @@ class ProjectConfig(BaseModel):
     output_dir: Path = Path("out")
     jobs_dir: Path = Path("jobs")
     applications_dir: Path = Path("applications")
+    hunts_dir: Path = Path("hunts")
     facts: list[Path] = Field(default_factory=list)
 
 
@@ -54,6 +62,16 @@ class GenerateConfig(BaseModel):
     min_bullets: int = 2
     max_bullets: int = 5
     max_bullet_words: int = 32
+
+
+class FitConfig(BaseModel):
+    """Vocabulary the fit score is measured over, beyond the packaged lexicon."""
+
+    model_config = {"extra": "forbid"}
+
+    #: Canonical term -> the spellings that mean it, e.g.
+    #: ``"clinical quality" = ["hedis", "star ratings"]``.
+    extra_terms: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class SearchSourceConfig(BaseModel):
@@ -98,8 +116,16 @@ class Config(BaseModel):
     documents: dict[str, DocumentConfig] = Field(default_factory=dict)
     generate: GenerateConfig = Field(default_factory=GenerateConfig)
     search: SearchConfig = Field(default_factory=SearchConfig)
+    fit: FitConfig = Field(default_factory=FitConfig)
     #: Raw [agents.<name>] tables, layered over the packaged defaults at use.
     agents: dict[str, dict[str, Any]] = Field(default_factory=dict)
+
+    def tailorable(self) -> list[str]:
+        """Document names a tailoring run produces unless told otherwise."""
+        return [name for name, doc in self.documents.items() if doc.tailor]
+
+    def hunt_stem(self, name: str) -> str:
+        return self.document(name).hunt_stem or name
 
     def document(self, name: str) -> DocumentConfig:
         if name not in self.documents:
@@ -141,6 +167,7 @@ def load_config(path: Path) -> Config:
     config.project.output_dir = _resolve(root, config.project.output_dir)
     config.project.jobs_dir = _resolve(root, config.project.jobs_dir)
     config.project.applications_dir = _resolve(root, config.project.applications_dir)
+    config.project.hunts_dir = _resolve(root, config.project.hunts_dir)
     config.project.facts = [_resolve(root, f) for f in config.project.facts]
     config.search.database = _resolve(root, config.search.database)
     for document in config.documents.values():

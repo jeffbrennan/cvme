@@ -563,9 +563,10 @@ no untyped defs, CI-enforced.
 | **M3** | Fact corpus loading, `cvme verify`, AI-speak lint | Adversarial fixtures all caught |
 | **M4** | `cvme job fetch` — JSON-LD, LinkedIn, Indeed, browser, manual | LinkedIn via HTTP; Indeed via browser or paste |
 | **M5** | Prompt suite, agent adapter, `cvme tailor` end-to-end | A tailored variant passes verify unassisted |
-| **M6** | `cvme apply <url>` one-shot, `cvme init` scaffolding, README | `cvme apply <url>` produces a reviewed application dir |
+| **M6** | one-shot capture-to-PDF, `cvme init` scaffolding, README | landed as `cvme prep <url>` in M9; `cvme init` shipped in M2b |
 | **M7** | `cvme convert` — PDF back into the grammar (§13) | Rendering the fixture and converting it back returns the same IR |
 | **M8** | `cvme ats` — check the rendered PDF as a parser reads it (§14) | A drawn bullet marker fails the check that a typed one passes |
+| **M9** | `cvme prep` and `cvme apps` — hunts, fit score, tracking (§15) | One command turns a URL into a directory you would work out of, and `cvme apps list` answers what is unsent |
 
 M1 is the milestone that matters, and it is already part-built: `spikes/match/`
 renders your existing resume to spec (§12). What remains in M1 is the markdown
@@ -750,3 +751,96 @@ The output is visually identical apart from the marker shape, passes every
 other check, and loses every bullet boundary in extraction. Nothing in the
 source, the style or the rendered page shows it; only reading the artefact back
 does.
+
+
+---
+
+## 15. Hunts, fit, and tracking (Milestone 9)
+
+Every command before this one is a step. `cvme job fetch` captures, `cvme
+tailor` writes, `cvme verify` gates, `cvme render` typesets. What was missing
+was the thing that holds a single application together, so that a week later
+the question "what did I send these people, and why did I think it was worth
+sending" is answered by the filesystem rather than by memory.
+
+### 15.1 One directory per posting
+
+```
+hunts/2026/01_northwind-health_staff-data-engineer_2026-01-04/
+    posting.md    the posting as captured, unedited
+    report.md     the computed fit, then the written background
+    .prompts/     what each agent was actually handed
+    apps/
+        index.md  every version, and how each differs from the one before
+        cv1.md  cv1.pdf  cover_letter1.md  cover_letter1.pdf
+```
+
+Two decisions are load-bearing.
+
+**The number is per year and never reused**, filed hunts included, so the order
+you found things in survives sorting and a directory listing is the index.
+
+**The version number is shared across documents in a hunt.** A resume and the
+cover letter that went with it are one attempt. Numbering them independently is
+how you end up sending version three of one with version one of the other.
+
+Status is the directory's location rather than a field: `prepared` sits at the
+top of its year and everything else moves under `hunts/<year>/<status>/`. What
+is still outstanding is then what is still at the top level, which is a fact
+about the filesystem and cannot drift from the database.
+
+### 15.2 The fit score
+
+Asking a model to rate a fit produces a number that reads well and cannot be
+checked. That is the same failure `cvme verify` exists to catch in a resume
+bullet, and it is worse in a score, because a score is read as a measurement.
+
+So the score is computed. The posting is read for terms from a packaged
+vocabulary (`hunt/lexicon.toml`), weighted by how often the posting names each,
+and those terms are looked for in the fact corpus and base documents.
+
+| Component | Points | Measured against |
+|---|---|---|
+| skills | 60 | corpus coverage of the posting's terms, weighted by mention count |
+| title | 15 | `search.preferred_titles` |
+| experience | 15 | years the posting asks for against years the corpus evidences |
+| location | 10 | `search.locations`, or remote |
+
+A posting the configured filters exclude scores zero and names the filter,
+rather than scoring low for reasons that read as fit.
+
+Three choices in the arithmetic are deliberate. Mention count is the weight,
+because a posting that names Spark six times and Go once is not asking for them
+equally and its own repetition is the only statement of priority it makes. A
+range of years gives its low end and separate requirements give the largest, so
+the bar is never flattered. And a posting with no vocabulary terms in it scores
+half of the skills component rather than zero, because zero there would be a
+claim about the fit when the truth is a claim about the lexicon.
+
+The vocabulary is the cost of the design: a term the posting asks for and the
+lexicon does not know is invisible, and "not answered" is the useful half of
+the output. `[fit.extra_terms]` extends it per project.
+
+### 15.3 The report
+
+`report.md` is composed rather than generated. The fit block above the rule is
+written by cvme from the score; the background below it is written by an agent
+from the posting and the corpus. The agent is told the score is not its to
+state, so nothing in the file asserts a number that cannot be recomputed.
+
+The agent has no network access, which makes a company background a genuinely
+constrained problem. It is allowed to draw on what it recalls, under a heading
+that says so and with a confidence marker per line, because a brief that says
+"the posting does not say" is worth more than one that guesses. The guess is
+what gets repeated out loud in the interview.
+
+### 15.4 Tracking
+
+`apps` and `rounds` live in the same SQLite database as job discovery, because
+a posting found by `cvme digest` and an application prepared from it are the
+same job. The table is an index over the directories, not the record: it holds
+the score, the status, and where the directory currently is, so a listing does
+not have to walk and re-parse the tree.
+
+`cvme apps list` sorts by fit descending and shows only unsent applications by
+default, since that is the order and the subset to spend an evening in.
