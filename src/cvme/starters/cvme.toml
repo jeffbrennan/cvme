@@ -62,6 +62,19 @@ max_detail_requests_per_run = 10
 [fit.extra_terms]
 # "quality measures" = ["hedis", "star ratings"]
 
+# The work-life score reads the posting's own vocabulary against a packaged
+# list of phrases -- see `cvme apps show` for what each one is worth and why.
+# Add your own tolerances here: a cost subtracts from the score, a lift adds
+# to it, and naming a packaged phrase replaces its weight rather than doubling
+# it.
+[culture.extra_costs]
+# "relocation required" = 12
+# "unpaid on call" = 20
+
+[culture.extra_lifts]
+# "four day week" = 25
+# "no travel" = 8
+
 # Add one or more searches, for example:
 # [[search.sources]]
 # site = "linkedin"

@@ -1,0 +1,331 @@
+# What a posting says about the hours, read as signals rather than adjectives.
+#
+# Every entry is a phrase a posting might use, what that phrase reliably
+# predicts about the week, and what it is worth. A cost subtracts from the
+# baseline; a lift adds to it. Nothing here is a judgement about the company:
+# it is a reading of the words the company chose to advertise with, which is
+# the only evidence available before an interview.
+#
+# `phrases` are matched on whole normalised tokens, so "lean" does not match
+# "learning" and "996" does not match a phone number. A phrase this field uses
+# for its systems rather than its hours -- "24/7", "asynchronous", "high
+# velocity" -- is deliberately not here, because a pipeline that runs all night
+# is not the same claim as a person who does. A phrase counts once
+# however many times it appears -- boilerplate repeated three times is one
+# statement, not three -- so weight is the only thing that decides severity.
+#
+# Extend it for your own tolerances with [culture] extra_costs and
+# extra_lifts in cvme.toml.
+
+# -- Costs --------------------------------------------------------------------
+
+[[cost]]
+term = "996"
+weight = 25
+says = "the 9am-to-9pm, six-day week, named outright"
+phrases = ["996", "996 culture", "9 9 6"]
+
+[[cost]]
+term = "always on"
+weight = 18
+says = "availability outside hours, stated as a virtue"
+# "24/7" and "around the clock" are deliberately absent: in this field they
+# describe the pipeline, not the person reading the posting.
+phrases = [
+  "always on", "nights and weekends", "evenings and weekends", "weekend work",
+  "after hours support", "whenever the business needs",
+]
+
+[[cost]]
+term = "crunch"
+weight = 15
+says = "the schedule is expected to fail, and you absorb it"
+phrases = [
+  "crunch", "crunch time", "all hands on deck", "war room", "war rooms",
+  "fire drill", "fire drills", "firefighting", "fire fighting",
+]
+
+[[cost]]
+term = "family"
+weight = 15
+says = "a family does not pay overtime and does not accept a resignation"
+phrases = [
+  "we are a family", "we re a family", "like a family", "one big family",
+  "family atmosphere", "family culture", "family environment", "family feel",
+]
+
+[[cost]]
+term = "hustle"
+weight = 12
+says = "the work is framed as identity, which is how unpaid hours are asked for"
+phrases = [
+  "hustle", "hustles", "hustle culture", "work hard play hard",
+  "whatever it takes", "no task is too small", "no job too small", "grindset",
+]
+
+[[cost]]
+term = "rockstar"
+weight = 12
+says = "one person hired to do what a team does, at one salary"
+phrases = [
+  "rockstar", "rockstars", "rock star", "rock stars", "ninja", "ninjas",
+  "guru", "gurus", "wizard", "wizards", "superstar", "superstars",
+  "10x engineer", "10x engineers", "unicorn", "unicorns",
+]
+
+[[cost]]
+term = "unlimited pto"
+weight = 12
+says = "no accrued balance to pay out, and no floor on what is actually taken"
+phrases = [
+  "unlimited pto", "unlimited paid time off", "unlimited vacation",
+  "unlimited time off", "open pto", "flexible pto", "discretionary time off",
+]
+
+[[cost]]
+term = "high pressure"
+weight = 10
+says = "the pressure is a feature of the role, not an incident in it"
+phrases = [
+  "high pressure", "thrive under pressure", "thrives under pressure",
+  "high stress", "demanding environment", "deadline driven",
+  "tight deadlines", "aggressive deadlines", "sense of urgency",
+]
+
+[[cost]]
+term = "lean team"
+weight = 10
+says = "headcount is the constraint, and the overflow is your evenings"
+phrases = [
+  "lean team", "lean and mean", "small but mighty", "scrappy",
+  "do more with less", "resource constrained", "under resourced",
+]
+
+[[cost]]
+term = "many hats"
+weight = 10
+says = "the role is undefined by design, and expands to fit the gaps"
+phrases = [
+  "wear many hats", "wears many hats", "wear multiple hats",
+  "wearing many hats", "many hats", "jack of all trades",
+]
+
+[[cost]]
+term = "fast paced"
+weight = 8
+says = "the pace is advertised before the work is, which is a ranking"
+phrases = [
+  "fast paced", "fast pace", "rapid pace", "breakneck", "move fast",
+  "move quickly",
+]
+
+[[cost]]
+term = "full stack"
+weight = 8
+says = "one engineer holding surface that is normally split across a team"
+phrases = ["full stack", "fullstack", "end to end ownership", "soup to nuts"]
+
+[[cost]]
+term = "return to office"
+weight = 8
+says = "the commute is not negotiable, whatever the work needs"
+phrases = [
+  "return to office", "five days in office", "5 days in office",
+  "five days a week in the office", "in office daily", "onsite daily",
+  "no remote work",
+]
+
+[[cost]]
+term = "on call"
+weight = 6
+says = "a rotation you will be in; ask how often it pages and what it pays"
+phrases = [
+  "on call", "oncall", "pager", "pagers", "pager duty", "production support",
+]
+
+[[cost]]
+term = "ambiguity"
+weight = 6
+says = "nobody has decided what the job is, and that decision lands on you"
+phrases = [
+  "comfortable with ambiguity", "thrive in ambiguity", "ambiguity",
+  "chaotic", "chaos", "ill defined",
+]
+
+[[cost]]
+term = "founding engineer"
+weight = 6
+says = "everything unwritten is yours, including the parts nobody has scoped"
+phrases = ["founding engineer", "founding team", "first engineering hire"]
+
+[[cost]]
+term = "startup mentality"
+weight = 6
+says = "startup hours, held as a value rather than a stage"
+phrases = [
+  "startup mentality", "startup mindset", "founder mentality",
+  "entrepreneurial mindset", "owner mentality", "extreme ownership",
+]
+
+[[cost]]
+term = "competitive salary"
+weight = 6
+says = "a range would have been a number, and this is neither"
+phrases = [
+  "competitive salary", "competitive compensation", "competitive pay",
+  "salary commensurate", "commensurate with experience",
+  "depending on experience",
+]
+
+[[cost]]
+term = "passion"
+weight = 4
+says = "enthusiasm named as a requirement is overtime asked for politely"
+phrases = [
+  "passionate", "passion for", "self starter", "self starters",
+  "highly motivated", "go getter", "go getters", "driven individual",
+  "roll up your sleeves",
+]
+
+# -- Lifts --------------------------------------------------------------------
+
+[[lift]]
+term = "four day week"
+weight = 20
+says = "the week is shorter and the company has already priced it"
+phrases = [
+  "four day week", "4 day week", "four day work week", "4 day work week",
+  "nine day fortnight", "32 hour week",
+]
+
+[[lift]]
+term = "sustainable pace"
+weight = 15
+says = "the hours are named as finite, which almost nothing else here does"
+phrases = [
+  "sustainable pace", "no crunch", "forty hour week", "40 hour week",
+  "we do not work weekends", "we don t work weekends", "respect your time",
+  "protect your time", "reasonable hours",
+]
+
+[[lift]]
+term = "no on call"
+weight = 15
+says = "nights belong to you, stated where it can be held to"
+phrases = [
+  "no on call", "no oncall", "no pager", "without on call",
+  "no nights or weekends", "no weekend work",
+]
+
+[[lift]]
+term = "collective bargaining"
+weight = 15
+says = "the terms are bargained and written down, not offered and revised"
+phrases = [
+  "collective bargaining", "union represented", "unionised", "unionized",
+  "union contract", "bargaining unit",
+]
+
+[[lift]]
+term = "defined pto"
+weight = 12
+says = "leave you can count, and can be paid out when you go"
+phrases = [
+  "days of pto", "days of paid time off", "days of vacation",
+  "weeks of vacation", "weeks of pto", "accrued pto", "minimum pto",
+  "mandatory pto", "minimum vacation",
+]
+
+[[lift]]
+term = "parental leave"
+weight = 10
+says = "the leave is paid and its length is written down"
+phrases = [
+  "paid parental leave", "parental leave", "maternity leave",
+  "paternity leave", "adoption leave", "caregiver leave",
+]
+
+[[lift]]
+term = "sabbatical"
+weight = 10
+says = "long service buys time off, which assumes long service is expected"
+phrases = ["sabbatical", "sabbaticals", "recharge leave", "extended leave"]
+
+[[lift]]
+term = "blameless"
+weight = 10
+says = "failure is treated as a systems problem, which is what lets you sleep"
+phrases = [
+  "blameless", "blameless postmortem", "blameless postmortems",
+  "blameless post mortem", "psychological safety", "no blame",
+]
+
+[[lift]]
+term = "focus time"
+weight = 8
+says = "the calendar is defended, so the work happens inside the day"
+phrases = [
+  "no meeting", "no meetings", "meeting free", "focus time", "deep work",
+  "maker time", "low meeting",
+]
+
+[[lift]]
+term = "async"
+weight = 8
+says = "the default is written and durable, so presence is not the metric"
+# Not bare "asynchronous": in a data posting that is a pipeline, not a norm.
+phrases = [
+  "async first", "async by default", "remote first", "documentation first",
+  "written culture",
+]
+
+[[lift]]
+term = "core hours"
+weight = 8
+says = "a stated window everyone is present, and the rest of the day is yours"
+phrases = ["core hours", "core collaboration hours", "overlap hours"]
+
+[[lift]]
+term = "company shutdown"
+weight = 8
+says = "everyone is off at once, so nothing accrues while you are away"
+phrases = [
+  "company shutdown", "holiday shutdown", "winter break", "recharge week",
+  "company wide holiday", "summer friday", "summer fridays",
+]
+
+[[lift]]
+term = "growth budget"
+weight = 6
+says = "learning is funded on work time rather than expected on your own"
+phrases = [
+  "learning budget", "education stipend", "conference budget",
+  "professional development budget", "tuition reimbursement",
+  "training budget",
+]
+
+[[lift]]
+term = "mentoring"
+weight = 6
+says = "someone is accountable for you ramping, so the first months are planned"
+# "mentoring" alone is absent on purpose: in a senior posting it is a duty
+# being assigned, not support being offered.
+phrases = [
+  "mentorship program", "assigned mentor", "pair programming",
+  "onboarding buddy", "structured onboarding", "ramp up plan",
+]
+
+[[lift]]
+term = "pay transparency"
+weight = 5
+says = "the number is published, which is the cheapest test of good faith"
+phrases = [
+  "pay transparency", "salary range", "pay range", "compensation range",
+  "posted range",
+]
+
+[[lift]]
+term = "states work life balance"
+weight = 5
+says = "said out loud; worth one point and no more until someone confirms it"
+phrases = ["work life balance", "work life harmony", "healthy balance"]

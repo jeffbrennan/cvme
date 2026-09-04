@@ -10,12 +10,48 @@ found by ``cvme digest`` and an application prepared from it are the same job.
 from __future__ import annotations
 
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from cvme.errors import HuntError
+from cvme.errors import ConfigError, HuntError
+from cvme.hunt.culture import NO_CULTURE, Culture, decode
 from cvme.hunt.layout import OPEN
+from cvme.hunt.pay import NO_PAY, Pay
+
+#: Columns added after the table first shipped. They are applied to a fresh
+#: database and to an existing one by the same code path, so there is one
+#: statement of what each column is and no schema that only new users get.
+ADDED_COLUMNS = (
+    ("salary_low", "INTEGER NOT NULL DEFAULT 0"),
+    ("salary_high", "INTEGER NOT NULL DEFAULT 0"),
+    ("salary_period", "TEXT NOT NULL DEFAULT ''"),
+    ("salary_currency", "TEXT NOT NULL DEFAULT ''"),
+    ("salary_text", "TEXT NOT NULL DEFAULT ''"),
+    ("wlb", "INTEGER NOT NULL DEFAULT 0"),
+    ("wlb_band", "TEXT NOT NULL DEFAULT ''"),
+    ("wlb_signals", "TEXT NOT NULL DEFAULT ''"),
+    ("arrangement", "TEXT NOT NULL DEFAULT ''"),
+)
+
+#: What ``--sort`` accepts, and the columns each key orders by. Sorting is
+#: whitelisted rather than interpolated: the key names a plan, it does not
+#: become SQL. Each entry is (expression, descending), and the natural
+#: direction is the useful one -- best fit, best pay, longest wait.
+ORDERS: dict[str, tuple[tuple[str, bool], ...]] = {
+    "fit": (("fit", True), ("updated_at", True)),
+    "salary": (("salary_high", True), ("salary_low", True)),
+    "wlb": (("wlb", True), ("fit", True)),
+    "age": (("created_at", False),),
+    # Never sent is not "waiting longest", so those rows go to the end
+    # whatever the dates say.
+    "waiting": (("applied_at = ''", False), ("applied_at", False)),
+    "updated": (("updated_at", True),),
+    "company": (("company COLLATE NOCASE", False),),
+    "title": (("title COLLATE NOCASE", False),),
+    "status": (("status COLLATE NOCASE", False), ("fit", True)),
+    "versions": (("rounds", True),),
+}
 
 
 @dataclass(frozen=True)
@@ -49,10 +85,28 @@ class Application:
     updated_at: str
     applied_at: str
     note: str
+    pay: Pay = field(default_factory=Pay)
+    wlb: int = 0
+    wlb_band: str = ""
+    wlb_signals: str = ""
+    arrangement: str = ""
 
     @property
     def path(self) -> Path:
         return Path(self.directory)
+
+    @property
+    def culture(self) -> Culture:
+        """The work-life reading, restored from the row that stored it."""
+        return Culture(self.wlb, decode(self.wlb_signals))
+
+    def age_days(self, now: datetime | None = None) -> int:
+        """Days since this was prepared."""
+        return _days_since(self.created_at, now)
+
+    def waiting_days(self, now: datetime | None = None) -> int:
+        """Days since it was sent, or -1 where it has not been."""
+        return _days_since(self.applied_at, now) if self.applied_at else -1
 
 
 class ApplicationStore:
@@ -96,7 +150,20 @@ class ApplicationStore:
             )
             """
         )
+        self._migrate()
         self.connection.commit()
+
+    def _migrate(self) -> None:
+        """Add any column this version knows about and the file does not."""
+        have = {
+            row["name"]
+            for row in self.connection.execute("PRAGMA table_info(applications)")
+        }
+        for name, declaration in ADDED_COLUMNS:
+            if name not in have:
+                self.connection.execute(
+                    f"ALTER TABLE applications ADD COLUMN {name} {declaration}"
+                )
 
     def close(self) -> None:
         self.connection.close()
@@ -120,6 +187,9 @@ class ApplicationStore:
         fit: int,
         band: str,
         rounds: int,
+        pay: Pay = NO_PAY,
+        culture: Culture = NO_CULTURE,
+        arrangement: str = "",
         note: str = "",
     ) -> None:
         """Insert or refresh one application, keeping its status and dates."""
@@ -128,8 +198,11 @@ class ApplicationStore:
             """
             INSERT INTO applications
                 (slug, year, url, company, title, location, directory, fit, band,
-                 status, rounds, created_at, updated_at, note)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 status, rounds, created_at, updated_at, note,
+                 salary_low, salary_high, salary_period, salary_currency,
+                 salary_text, wlb, wlb_band, wlb_signals, arrangement)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(slug) DO UPDATE SET
                 url = excluded.url,
                 company = excluded.company,
@@ -140,7 +213,16 @@ class ApplicationStore:
                 band = excluded.band,
                 rounds = excluded.rounds,
                 updated_at = excluded.updated_at,
-                note = CASE WHEN excluded.note = '' THEN note ELSE excluded.note END
+                note = CASE WHEN excluded.note = '' THEN note ELSE excluded.note END,
+                salary_low = excluded.salary_low,
+                salary_high = excluded.salary_high,
+                salary_period = excluded.salary_period,
+                salary_currency = excluded.salary_currency,
+                salary_text = excluded.salary_text,
+                wlb = excluded.wlb,
+                wlb_band = excluded.wlb_band,
+                wlb_signals = excluded.wlb_signals,
+                arrangement = excluded.arrangement
             """,
             (
                 slug,
@@ -157,7 +239,27 @@ class ApplicationStore:
                 now,
                 now,
                 note,
+                *_conditions(pay, culture, arrangement),
             ),
+        )
+        self.connection.commit()
+
+    def set_conditions(
+        self, slug: str, *, pay: Pay, culture: Culture, arrangement: str
+    ) -> None:
+        """Refresh what the posting says about pay and hours, nothing else.
+
+        Separate from :meth:`record` because re-reading a posting that is
+        already on disk is not a new version of the application, and must not
+        touch the fit, the status, or the dates.
+        """
+        self.connection.execute(
+            """UPDATE applications SET
+                   salary_low = ?, salary_high = ?, salary_period = ?,
+                   salary_currency = ?, salary_text = ?,
+                   wlb = ?, wlb_band = ?, wlb_signals = ?, arrangement = ?
+               WHERE slug = ?""",
+            (*_conditions(pay, culture, arrangement), slug),
         )
         self.connection.commit()
 
@@ -199,14 +301,20 @@ class ApplicationStore:
             raise HuntError(f"'{reference}' matches {len(rows)} applications: {names}")
         return _application(rows[0])
 
-    def select(self, statuses: list[str] | None = None) -> list[Application]:
-        """Applications, best fit first, because that is the order to work in."""
+    def select(
+        self,
+        statuses: list[str] | None = None,
+        *,
+        order: str = "fit",
+        reverse: bool = False,
+    ) -> list[Application]:
+        """Applications in one of the orders worth working in, best first."""
         sql = "SELECT * FROM applications"
         params: tuple[str, ...] = ()
         if statuses:
             sql += f" WHERE status IN ({','.join('?' * len(statuses))})"
             params = tuple(statuses)
-        sql += " ORDER BY fit DESC, updated_at DESC"
+        sql += f" ORDER BY {order_by(order, reverse)}"
         return [_application(row) for row in self.connection.execute(sql, params)]
 
     def set_status(
@@ -275,6 +383,46 @@ class ApplicationStore:
         return {row["status"]: row["count"] for row in rows}
 
 
+def check_order(key: str) -> str:
+    """Validate a sort key. A typo is bad input, not a broken hunt."""
+    if key not in ORDERS:
+        raise ConfigError(f"unknown sort '{key}'; use one of: {', '.join(ORDERS)}")
+    return key
+
+
+def order_by(key: str, reverse: bool = False) -> str:
+    """The ORDER BY clause for one whitelisted sort key."""
+    clauses = [
+        f"{column} {'DESC' if descending != reverse else 'ASC'}"
+        for column, descending in ORDERS[check_order(key)]
+    ]
+    return ", ".join([*clauses, "slug ASC"])
+
+
+def _conditions(pay: Pay, culture: Culture, arrangement: str) -> tuple[object, ...]:
+    return (
+        pay.low,
+        pay.high,
+        pay.period,
+        pay.currency,
+        pay.stated,
+        culture.score,
+        culture.band,
+        culture.encode(),
+        arrangement,
+    )
+
+
+def _days_since(stamp: str, now: datetime | None = None) -> int:
+    try:
+        when = datetime.fromisoformat(stamp)
+    except ValueError:
+        return 0
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=UTC)
+    return max(0, ((now or datetime.now(UTC)) - when).days)
+
+
 def _application(row: sqlite3.Row) -> Application:
     return Application(
         slug=row["slug"],
@@ -292,4 +440,15 @@ def _application(row: sqlite3.Row) -> Application:
         updated_at=row["updated_at"],
         applied_at=row["applied_at"],
         note=row["note"],
+        pay=Pay(
+            low=row["salary_low"],
+            high=row["salary_high"],
+            period=row["salary_period"],
+            currency=row["salary_currency"],
+            stated=row["salary_text"],
+        ),
+        wlb=row["wlb"],
+        wlb_band=row["wlb_band"],
+        wlb_signals=row["wlb_signals"],
+        arrangement=row["arrangement"],
     )

@@ -25,6 +25,9 @@ runner = CliRunner()
 POSTING = """\
 Northwind Health is hiring a Staff Data Engineer to own the lakehouse.
 
+This is a fully remote role. Compensation: $150,000 - $190,000 per year.
+We are a fast-paced team and we offer unlimited PTO. Paid parental leave.
+
 Requirements:
 - 5+ years building data pipelines
 - Advanced Python and SQL
@@ -84,6 +87,33 @@ def prep(project: Path, *args: str):
 
 def apps(project: Path, *args: str):
     return runner.invoke(app, ["apps", *args, "--config", str(project / CONFIG_NAME)])
+
+
+def prepare(project: Path, name: str, company: str, body: str, *args: str):
+    """A second posting in the same project, so a listing has rows to order."""
+    path = project / f"{name}.txt"
+    path.write_text(body)
+    return runner.invoke(
+        app,
+        [
+            "prep",
+            f"https://example.com/jobs/{name}",
+            "--config",
+            str(project / CONFIG_NAME),
+            "--text",
+            str(path),
+            "--title",
+            "Data Engineer",
+            "--company",
+            company,
+            "--agent",
+            "stub",
+            "-d",
+            "resume",
+            "--no-report",
+            *args,
+        ],
+    )
 
 
 def hunts(project: Path) -> Path:
@@ -254,3 +284,101 @@ def test_show_reports_every_version(project: Path) -> None:
     result = apps(project, "show", "northwind")
     assert result.exit_code == 0, result.output
     assert "cv1" in result.output and "cv2" in result.output
+
+
+GRIM = """\
+Hypergrowth Labs wants a founding engineer, full stack, to move fast in a
+scrappy startup with a work hard play hard culture. All hands on deck. 996.
+We are like a family. $90,000 - $110,000 per year. Python and SQL required.
+"""
+
+CALM = """\
+Steady State is hiring a Data Engineer. We work a four day work week with core
+hours, no on call, 25 days of PTO, paid parental leave and a learning budget.
+$200,000 - $240,000 per year. Python, SQL and dbt.
+"""
+
+
+def test_the_listing_carries_what_the_posting_said_about_pay_and_hours(
+    project: Path,
+) -> None:
+    prep(project, "--agent", "stub", "-d", "resume", "--no-report")
+    result = apps(project, "list", "--columns", "company,salary,wlb,where")
+    assert result.exit_code == 0, result.output
+    assert "$150k-190k" in result.output
+    assert "remote" in result.output, "the posting says the role is remote"
+    assert "busy" in result.output, "and that it is fast-paced with unlimited PTO"
+
+
+def test_sorting_by_pay_and_by_hours_orders_differently(project: Path) -> None:
+    assert prepare(project, "grim", "Hypergrowth Labs", GRIM).exit_code == 0
+    assert prepare(project, "calm", "Steady State", CALM).exit_code == 0
+
+    by_pay = apps(project, "list", "--sort", "salary").output
+    assert by_pay.index("Steady State") < by_pay.index("Hypergrowth")
+
+    by_hours = apps(project, "list", "--sort", "wlb").output
+    assert by_hours.index("Steady State") < by_hours.index("Hypergrowth")
+
+    worst_first = apps(project, "list", "--sort", "salary", "--reverse").output
+    assert worst_first.index("Hypergrowth") < worst_first.index("Steady State")
+
+
+def test_a_listing_says_which_order_it_is_in(project: Path) -> None:
+    prep(project, "--agent", "stub", "-d", "resume", "--no-report")
+    assert "by salary" in apps(project, "list", "--sort", "salary").output
+
+
+def test_columns_are_chosen_by_name(project: Path) -> None:
+    prep(project, "--agent", "stub", "-d", "resume", "--no-report")
+    result = apps(project, "list", "--columns", "company,salary")
+    assert "Northwind Health" in result.output
+    assert "$150k-190k" in result.output
+    assert "status" not in result.output, "a column not asked for is not shown"
+
+
+def test_an_unknown_sort_or_column_lists_what_was_available(project: Path) -> None:
+    prep(project, "--agent", "stub", "-d", "resume", "--no-report")
+    sort = apps(project, "list", "--sort", "vibes")
+    assert sort.exit_code == 1
+    assert "unknown sort 'vibes'" in sort.output and "salary" in sort.output
+    columns = apps(project, "list", "--columns", "fit,vibes")
+    assert columns.exit_code == 1
+    assert "unknown column vibes" in columns.output
+
+
+def test_show_gives_the_working_behind_the_work_life_score(project: Path) -> None:
+    prep(project, "--agent", "stub", "-d", "resume", "--no-report")
+    result = apps(project, "show", "northwind")
+    assert result.exit_code == 0, result.output
+    assert "unlimited pto" in result.output
+    assert "no accrued balance" in result.output, "a signal explains itself"
+    assert "parental leave" in result.output
+
+
+def test_rescan_rereads_the_postings_without_touching_the_fit(project: Path) -> None:
+    prep(project, "--agent", "stub", "-d", "resume", "--no-report")
+    before = apps(project, "list").output
+    config = project / CONFIG_NAME
+    config.write_text(
+        config.read_text().replace(
+            "[culture.extra_costs]", '[culture.extra_costs]\n"lakehouse" = 40'
+        )
+    )
+
+    result = apps(project, "rescan")
+    assert result.exit_code == 0, result.output
+    assert "re-read 1 posting" in result.output
+
+    after = apps(project, "list").output
+    assert "grind" in after and "grind" not in before
+    assert "89 strong" in after or after.count("strong") == before.count("strong")
+
+
+def test_the_report_carries_the_pay_and_the_hours_it_read(project: Path) -> None:
+    result = prep(project, "--agent", "none", "-d", "resume")
+    assert result.exit_code == 0, result.output
+    report = (next(iter(hunts(project).iterdir())) / "report.md").read_text()
+    assert "**Pay** $150k-190k" in report
+    assert "**Work-life " in report
+    assert "unlimited pto" in report

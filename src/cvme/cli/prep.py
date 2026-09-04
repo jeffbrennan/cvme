@@ -32,7 +32,10 @@ from cvme.errors import ConfigError, VerificationFailed
 from cvme.generate import agent as agents
 from cvme.generate.bundle import build
 from cvme.generate.produce import Produced, generate, produce, write_prompt
-from cvme.hunt import index, layout, report
+from cvme.hunt import culture as culture_lexicon
+from cvme.hunt import index, layout, pay, report
+from cvme.hunt.culture import Culture
+from cvme.hunt.pay import Pay
 from cvme.hunt.score import Fit
 from cvme.hunt.score import evaluate as evaluate_fit
 from cvme.hunt.store import ApplicationStore
@@ -115,8 +118,24 @@ def _locate(config: Config, posting: JobPosting, *, new: bool) -> layout.Hunt:
     return layout.Hunt(root, year, slug)
 
 
-def _fit_only(posting: JobPosting, fit: Fit) -> None:
-    typer.echo(report.fit_block(posting, fit).rstrip())
+def conditions(config: Config, posting: JobPosting) -> tuple[Pay, Culture]:
+    """What the posting says it pays, and what it says about the hours.
+
+    Both are read from the posting alone, so they can be recomputed from
+    ``posting.md`` at any time without the corpus the fit score needs.
+    """
+    return (
+        pay.read(posting.salary, posting.description),
+        culture_lexicon.evaluate(
+            f"{posting.title}\n{posting.description}",
+            extra_costs=config.culture.extra_costs,
+            extra_lifts=config.culture.extra_lifts,
+        ),
+    )
+
+
+def _fit_only(posting: JobPosting, fit: Fit, money: Pay, culture: Culture) -> None:
+    typer.echo(report.fit_block(posting, fit, money, culture).rstrip())
 
 
 @handled
@@ -202,8 +221,9 @@ def prep(
         config.search,
         extra_terms=config.fit.extra_terms,
     )
+    money, culture = conditions(config, posting)
     if fit_only:
-        _fit_only(posting, fit)
+        _fit_only(posting, fit, money, culture)
         return
 
     hunt = _locate(config, posting, new=new)
@@ -267,7 +287,9 @@ def prep(
             rejected.append(name)
 
     if not no_report:
-        _write_report(config, hunt, posting, fit, spec, prompts, base=wanted[0])
+        _write_report(
+            config, hunt, posting, fit, money, culture, spec, prompts, base=wanted[0]
+        )
 
     _record(
         config,
@@ -275,6 +297,8 @@ def prep(
         posting,
         fit,
         produced,
+        money=money,
+        culture=culture,
         round_number=round_number,
         documents=wanted,
         rejected=rejected,
@@ -284,6 +308,7 @@ def prep(
     typer.echo("")
     typer.echo(f"{hunt.path}  version {round_number}")
     typer.echo(report.summary_line(fit))
+    typer.echo(report.conditions_line(money, culture))
     if not no_report:
         typer.echo(f"read {hunt.report} before you write anything by hand")
     if rejected:
@@ -301,6 +326,8 @@ def _record(
     fit: Fit,
     produced: list[Produced],
     *,
+    money: Pay,
+    culture: Culture,
     round_number: int,
     documents: list[str],
     rejected: list[str],
@@ -326,6 +353,9 @@ def _record(
             fit=fit.score,
             band=fit.band,
             rounds=round_number,
+            pay=money,
+            culture=culture,
+            arrangement=posting.arrangement,
             note=note,
         )
         store.add_round(
@@ -352,6 +382,8 @@ def _write_report(
     hunt: layout.Hunt,
     posting: JobPosting,
     fit: Fit,
+    money: Pay,
+    culture: Culture,
     spec: agents.AgentSpec,
     prompts: Path,
     *,
@@ -376,7 +408,9 @@ def _write_report(
     prompt_path = write_prompt(bundle, prompts)
     if spec.writes_nothing:
         hunt.report.write_text(
-            report.compose(posting, fit, f"_Run the prompt at {prompt_path}._"),
+            report.compose(
+                posting, fit, money, culture, f"_Run the prompt at {prompt_path}._"
+            ),
             encoding="utf-8",
         )
         typer.echo(f"  wrote {hunt.report} (fit only; no agent ran)")
@@ -386,7 +420,9 @@ def _write_report(
     generate(spec, bundle, prompt_path)
     background = bundle.output_path.read_text(encoding="utf-8")
     bundle.output_path.unlink()
-    hunt.report.write_text(report.compose(posting, fit, background), encoding="utf-8")
+    hunt.report.write_text(
+        report.compose(posting, fit, money, culture, background), encoding="utf-8"
+    )
     typer.echo(f"  wrote {hunt.report}")
 
 

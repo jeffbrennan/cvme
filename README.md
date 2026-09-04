@@ -39,6 +39,7 @@ Under construction, milestone by milestone. See
 | M7 — `cvme convert`: an existing PDF resume back into markdown | done |
 | M8 — `cvme ats`: check the rendered PDF the way a parser reads it | done |
 | M9 — `cvme prep` and `cvme apps`: one directory per posting, tracked | done |
+| M10 — pay and work-life read from the posting, sortable in `cvme apps` | done |
 
 ## Design
 
@@ -224,6 +225,16 @@ requirements your corpus answers, and which it does not.
 **Answered.** databricks (2), airflow, data quality, kubernetes, python, sql
 
 **Not answered.** claims (2), delta lake, healthcare, pyspark, rust, terraform
+
+**Pay** $150k-190k (as stated: $150,000 - $190,000 per year)
+
+**Work-life 50/100 (busy)**
+
+| signal | worth | what it predicts |
+|---|---|---|
+| unlimited pto | -12 | no accrued balance to pay out, and no floor on what is actually taken |
+| fast paced | -8 | the pace is advertised before the work is, which is a ranking |
+| parental leave | +10 | the leave is paid and its length is written down |
 ```
 
 The rest of the report is written by the agent from the posting and your
@@ -231,17 +242,91 @@ corpus, with anything it recalls rather than reads kept under its own
 `## From general knowledge (unverified)` heading. The score is never asked of
 the agent, so nothing in the report asserts a number that cannot be recomputed.
 
+### What the posting says it pays, and what it says about the hours
+
+Both are read from the posting and reported beside the fit, because a strong
+match that pays under your current job, or that advertises itself with "we are
+a family" and "unlimited PTO", is not the one to spend the evening on.
+
+Pay is annualised so the column compares: a range, a single figure, or an
+hourly rate all become one number, and the words it was read from are kept
+beside it. A figure is only believed where the posting marks it as money, so
+"5+ years" and "10,000 patients per year" are not read as salaries.
+
+The work-life score is the same argument as the fit score. Asking a model what
+a company is like to work at produces an answer worth nothing; what can be
+checked is the vocabulary the posting chose. It starts at 60, subtracts what
+each cost phrase is worth, adds what each lift is worth, and names every
+phrase it found:
+
+```
+work-life 34/100 (busy)
+   -12 unlimited pto: no accrued balance to pay out, and no floor on what is actually taken
+   -10 many hats: the role is undefined by design, and expands to fit the gaps
+    -8 fast paced: the pace is advertised before the work is, which is a ranking
+   +10 parental leave: the leave is paid and its length is written down
+```
+
+Costs include `996`, `we are a family`, `rockstar`, `unlimited PTO`,
+`wear many hats`, `lean team`, `full stack`, `fast paced`, `hustle`,
+`always on`, `crunch`, `competitive salary` and `comfortable with ambiguity`.
+Lifts include `four day work week`, `no on call`, `collective bargaining`,
+`25 days of PTO`, `paid parental leave`, `sabbatical`, `core hours`,
+`blameless postmortems`, `company shutdown` and `sustainable pace`. A phrase
+counts once however often it appears, and a promise is not charged for what it
+promises to avoid: "no on-call" does not also score as "on call". Where a
+posting says nothing either way the band is `unstated`, because silence is not
+the same as sixty.
+
+Add your own tolerances in `cvme.toml`; naming a packaged phrase replaces its
+weight rather than doubling it:
+
+```toml
+[culture.extra_costs]
+"relocation required" = 12
+
+[culture.extra_lifts]
+"no travel" = 8
+```
+
 ### Tracking what you have not sent
 
 ```bash
 cvme apps list                       # prepared and unsent, best fit first
+cvme apps list --sort salary         # or wlb, age, waiting, updated, company, ...
+cvme apps list --sort age --reverse  # newest first instead of oldest
 cvme apps list --status applied,interviewing
 cvme apps list --all
 cvme apps show northwind             # every version, and what changed between them
+cvme apps rescan                     # re-read every posting for pay and hours
 cvme apps submit northwind           # sent: file it under applied/
 cvme apps status northwind interviewing --note 'call tuesday'
 cvme apps status northwind rejected
 ```
+
+```
+prepared, not yet sent, by fit
+    fit   company             title                   salary       work-life  where   age  status    v
+ 89 strong Acme Analytics      Senior Data Engineer             -    0 grind  onsite   6d  prepared  2
+ 82 strong Mount Sinai         Senior Data Engineer             -   unstated  hybrid   4d  prepared  1
+ 81 strong Hypergrowth Labs    Founding Data Engineer  $140k-170k    0 grind  hybrid   2d  prepared  1
+ 78 strong Northwind Health    Staff Data Engineer     $185k-215k  100 calm   remote   1d  prepared  1
+
+4 prepared  median pay 200k of 2 stated  mean work-life 33 of 3 stated
+```
+
+`--sort` takes `fit`, `salary`, `wlb`, `age` (longest sitting first), `waiting`
+(longest since it was sent), `updated`, `company`, `title`, `status` and
+`versions`; `--reverse` flips whichever it is. `--columns` picks and orders the
+cells, from `fit, company, title, salary, wlb, age, waiting, status, versions,
+where, location, note, slug, url, directory`. Where the terminal is too narrow
+to hold the default set, the rightmost columns are dropped rather than every
+column squeezed, and the listing says which.
+
+`cvme apps rescan` re-reads each captured `posting.md` for pay and hours and
+updates the table -- after the lexicon changes, or for applications prepared
+before those columns existed. It leaves the fit score alone: that is measured
+against your corpus and belongs to the run that produced the documents.
 
 Statuses are `prepared`, `applied`, `interviewing`, `offer`, `rejected` and
 `withdrawn`. Refiling moves the whole directory, so what is still sitting at
