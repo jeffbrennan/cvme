@@ -62,7 +62,9 @@ def ats(
             config.document(name) if config and name else DocumentConfig(path=path)
         )
         style = resolve(document.style, document.overrides)
-        source = parse_file(path)
+        # The rendered PDF has no drafting sections, so neither has the
+        # document it is checked against.
+        source = parse_file(path).sendable()
         with tempfile.TemporaryDirectory() as workdir:
             rendered = Path(workdir) / "check.pdf"
             fit(source, style, output=rendered, template=document.template)

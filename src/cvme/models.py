@@ -11,9 +11,17 @@ renderer can interpolate values without re-escaping them.
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 
 from pydantic import BaseModel, Field
+
+_MARKUP = re.compile(r"[*_`#\\\[\]]+")
+
+
+def to_plain_title(title: str) -> str:
+    """A section title reduced to the word it names, for comparison."""
+    return _MARKUP.sub("", title).strip().casefold()
 
 
 class Contact(BaseModel):
@@ -80,6 +88,12 @@ class Section(BaseModel):
     entries: list[Entry] = Field(default_factory=list)
 
 
+#: Sections written for the author, never for the reader. The tailoring prompt
+#: asks for a `## Gaps` list of every requirement the corpus could not answer,
+#: which is exactly the paragraph that must not reach the person hiring you.
+DRAFTING_SECTIONS = frozenset({"gaps"})
+
+
 class Document(BaseModel):
     """A whole resume or cover letter."""
 
@@ -87,6 +101,22 @@ class Document(BaseModel):
     contact: list[Contact] = Field(default_factory=list)
     meta: dict[str, str] = Field(default_factory=dict)
     sections: list[Section] = Field(default_factory=list)
+
+    def sendable(self) -> Document:
+        """This document without the sections that exist for the author.
+
+        Applied at the render boundary rather than at the parse boundary: the
+        source file keeps its `## Gaps`, because that list is the point of
+        writing one, and `cvme verify` still reads it.
+        """
+        keep = [
+            section
+            for section in self.sections
+            if to_plain_title(section.title) not in DRAFTING_SECTIONS
+        ]
+        if len(keep) == len(self.sections):
+            return self
+        return self.model_copy(update={"sections": keep})
 
     def facts(self) -> list[str]:
         """Every fact id cited anywhere in the document.

@@ -322,6 +322,10 @@ Exit codes are distinct so a script can tell failures apart: `1` bad input,
 invents a metric is never rendered, and any PDF from an earlier run is removed
 rather than left sitting beside a rejected draft.
 
+A generated draft ends with a `## Gaps` section listing every requirement the
+corpus could not answer. It is dropped at the render boundary and never reaches
+a PDF: it is written for you, and it is the last thing you would send.
+
 Generated quantitative claims must carry an `<!-- fact: id -->` citation.
 Matching retains the measured subject and qualifier, so `14 facilities` does
 not license `14 engineers`, and `100k`, `~100k`, and `100k+` are distinct. Fact
