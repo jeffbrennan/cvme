@@ -31,7 +31,7 @@ from cvme.config import Config, find_config, load_config
 from cvme.errors import ConfigError, VerificationFailed
 from cvme.generate import agent as agents
 from cvme.generate.bundle import build
-from cvme.generate.produce import generate, produce, write_prompt
+from cvme.generate.produce import Produced, generate, produce, write_prompt
 from cvme.hunt import index, layout, report
 from cvme.hunt.score import Fit
 from cvme.hunt.score import evaluate as evaluate_fit
@@ -224,7 +224,7 @@ def prep(
         )
 
     prompts = hunt.path / ".prompts"
-    produced = []
+    produced: list[Produced] = []
     rejected: list[str] = []
     for name in wanted:
         document = config.document(name)
@@ -265,10 +265,43 @@ def prep(
     if not no_report:
         _write_report(config, hunt, posting, fit, spec, prompts, base=wanted[0])
 
-    changes = _changes(config, hunt, wanted, round_number)
-    pages = ", ".join(
-        f"{p.document} {p.pages}p" for p in produced if p.pages is not None
+    _record(
+        config,
+        hunt,
+        posting,
+        fit,
+        produced,
+        round_number=round_number,
+        documents=wanted,
+        note=note,
     )
+    typer.echo(f"  wrote {hunt.index}")
+    typer.echo("")
+    typer.echo(f"{hunt.path}  version {round_number}")
+    typer.echo(report.summary_line(fit))
+    if not no_report:
+        typer.echo(f"read {hunt.report} before you write anything by hand")
+    if rejected:
+        raise VerificationFailed(
+            f"{', '.join(rejected)} did not pass verification and "
+            f"{'was' if len(rejected) == 1 else 'were'} not rendered; "
+            "the draft and the report are in place to fix from"
+        )
+
+
+def _record(
+    config: Config,
+    hunt: layout.Hunt,
+    posting: JobPosting,
+    fit: Fit,
+    produced: list[Produced],
+    *,
+    round_number: int,
+    documents: list[str],
+    note: str,
+) -> None:
+    """Index this run: the application, the round, and the apps/index.md."""
+    written = [p for p in produced if p.markdown is not None]
     with ApplicationStore(config.search.database) as store:
         store.record(
             slug=hunt.slug,
@@ -287,13 +320,13 @@ def prep(
             slug=hunt.slug,
             number=round_number,
             documents=", ".join(
-                f"{config.hunt_stem(p.document)}{round_number}"
-                for p in produced
-                if p.markdown is not None
+                f"{config.hunt_stem(p.document)}{round_number}" for p in written
             ),
-            pages=pages,
+            pages=", ".join(
+                f"{p.document} {p.pages}p" for p in produced if p.pages is not None
+            ),
             fit=fit.score,
-            changes=changes,
+            changes=_changes(config, hunt, documents, round_number),
             note=note,
         )
         index.write(
@@ -301,19 +334,6 @@ def prep(
             hunt.slug,
             " at ".join(p for p in (posting.title, posting.company) if p),
             store.rounds_for(hunt.slug),
-        )
-
-    typer.echo(f"  wrote {hunt.index}")
-    typer.echo("")
-    typer.echo(f"{hunt.path}  version {round_number}")
-    typer.echo(report.summary_line(fit))
-    if not no_report:
-        typer.echo(f"read {hunt.report} before you write anything by hand")
-    if rejected:
-        raise VerificationFailed(
-            f"{', '.join(rejected)} did not pass verification and "
-            f"{'was' if len(rejected) == 1 else 'were'} not rendered; "
-            "the draft and the report are in place to fix from"
         )
 
 
