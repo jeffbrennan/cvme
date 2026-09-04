@@ -74,6 +74,19 @@ class FitConfig(BaseModel):
     extra_terms: dict[str, list[str]] = Field(default_factory=dict)
 
 
+class CultureConfig(BaseModel):
+    """Phrases the work-life score should weigh beyond the packaged lexicon."""
+
+    model_config = {"extra": "forbid"}
+
+    #: Phrase -> how many points finding it costs, e.g.
+    #: ``"relocation required" = 10``. A packaged term named here is replaced
+    #: rather than counted twice.
+    extra_costs: dict[str, int] = Field(default_factory=dict)
+    #: Phrase -> how many points finding it is worth.
+    extra_lifts: dict[str, int] = Field(default_factory=dict)
+
+
 class SearchSourceConfig(BaseModel):
     """One repeatable search on a supported job board."""
 
@@ -117,6 +130,7 @@ class Config(BaseModel):
     generate: GenerateConfig = Field(default_factory=GenerateConfig)
     search: SearchConfig = Field(default_factory=SearchConfig)
     fit: FitConfig = Field(default_factory=FitConfig)
+    culture: CultureConfig = Field(default_factory=CultureConfig)
     #: Raw [agents.<name>] tables, layered over the packaged defaults at use.
     agents: dict[str, dict[str, Any]] = Field(default_factory=dict)
 

@@ -8,6 +8,10 @@ them apart means the number never becomes something a model asserted.
 
 from __future__ import annotations
 
+from cvme.hunt.culture import BASELINE as CULTURE_BASELINE
+from cvme.hunt.culture import NO_CULTURE, Culture
+from cvme.hunt.culture import summary_line as culture_line
+from cvme.hunt.pay import NO_PAY, Pay
 from cvme.hunt.score import Fit, Requirement
 from cvme.jobs.models import JobPosting
 
@@ -25,7 +29,38 @@ def _terms(requirements: list[Requirement], limit: int = LIST_LIMIT) -> str:
     return rendered or "_none_"
 
 
-def fit_block(posting: JobPosting, fit: Fit) -> str:
+def conditions_block(money: Pay, culture: Culture) -> list[str]:
+    """What the posting says about pay and hours, and which words said it.
+
+    Both readings are of the advertisement, not of the company, and both name
+    the phrases they came from so a wrong reading is visibly wrong.
+    """
+    stated = f" (as stated: {money.stated})" if money.stated else ""
+    lines = [
+        f"**Pay** {money.short}{stated}" if money else "**Pay** not stated",
+        "",
+        f"**Work-life {culture.score}/100 ({culture.band})**",
+        "",
+    ]
+    if not culture.signals:
+        lines += ["The posting says nothing either way about the hours.", ""]
+        return lines
+    lines += [
+        "| signal | worth | what it predicts |",
+        "|---|---|---|",
+        *(f"| {s.term} | {s.sign} | {s.says} |" for s in culture.signals),
+        "",
+        f"Read from the posting's own vocabulary, starting at {CULTURE_BASELINE} "
+        "where a posting says nothing. Each phrase counts once however often it "
+        "appears.",
+        "",
+    ]
+    return lines
+
+
+def fit_block(
+    posting: JobPosting, fit: Fit, money: Pay = NO_PAY, culture: Culture = NO_CULTURE
+) -> str:
     """The computed half of a report, including its own working."""
     heading = " at ".join(p for p in (posting.title, posting.company) if p)
     lines = [
@@ -56,8 +91,11 @@ def fit_block(posting: JobPosting, fit: Fit) -> str:
         "",
         "Terms are counted where the posting names them and looked for in your "
         "fact corpus and base documents. A count in brackets is how many times "
-        "the posting said it. Everything above this line is computed; "
-        "everything below it was written.",
+        "the posting said it.",
+        "",
+        *conditions_block(money, culture),
+        "Everything above this line is computed from the posting; everything "
+        "below it was written.",
         "",
         "---",
         "",
@@ -65,9 +103,17 @@ def fit_block(posting: JobPosting, fit: Fit) -> str:
     return "\n".join(lines)
 
 
-def compose(posting: JobPosting, fit: Fit, background: str) -> str:
+def compose(
+    posting: JobPosting, fit: Fit, money: Pay, culture: Culture, background: str
+) -> str:
     body = background.strip() or "_No background was generated._"
-    return f"{fit_block(posting, fit)}{body}\n"
+    return f"{fit_block(posting, fit, money, culture)}{body}\n"
+
+
+def conditions_line(money: Pay, culture: Culture) -> str:
+    """The one line worth putting in a CLI exit message."""
+    pay_part = f"pay {money.short}" if money else "pay not stated"
+    return f"{pay_part}; {culture_line(culture)}"
 
 
 def summary_line(fit: Fit) -> str:
