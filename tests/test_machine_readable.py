@@ -13,7 +13,9 @@ import pdfplumber
 import pytest
 from pypdf import PdfReader
 
-from cvme.style.schema import Style
+from cvme.models import Document
+from cvme.render.engine import compile_document
+from cvme.style.schema import Style, resolve
 
 
 def catalog(path: Path) -> dict[str, Any]:
@@ -82,8 +84,16 @@ def test_sections_are_real_headings_not_bold_text(resume_pdf: Path) -> None:
                     walk(obj["/K"], depth + 1)
 
     walk(catalog(resume_pdf)["/StructTreeRoot"].get("/K"))
+    assert "/H1" in seen, "the name should be the document's one H1"
     assert "/H2" in seen
     assert "/L" in seen, "bullet lists should carry a List tag"
+
+
+def test_pdf_ua_1_accepts_the_document(resume_doc: Document, tmp_path: Path) -> None:
+    """PDF/UA-1 refuses a document whose first heading is deeper than level 1."""
+    style = resolve("standard", {"pdf_standard": "ua-1"})
+    out = compile_document(resume_doc, style, output=tmp_path / "ua.pdf")
+    assert out.exists()
 
 
 def test_metadata_carries_title_and_author(resume_pdf: Path) -> None:

@@ -15,8 +15,9 @@ begins. A real bullet character is the only option that both prints correctly
 and survives extraction. `--set marker_glyph=""` restores the drawn box if you
 prefer the square.
 
-**Sections are real headings.** They emit `/H2` tags into the PDF's structure
-tree, with entries as `/H3` and bullet lists as `/L`. Bold text in a `/Div`
+**Sections are real headings.** The name emits `/H1` -- one per document, since
+it is the document's title -- and sections emit `/H2`, with entries as `/H3` and
+bullet lists as `/L`. Bold text in a `/Div`
 gives a parser nothing; a tagged heading gives it an outline. Typst tags PDFs by
 default, but only for elements that are semantically headings — styling text
 bold does not make it one.
@@ -67,9 +68,9 @@ cvme render resume.md --pdf-standard ua-1     # accessibility-tagged
 cvme render resume.md --pdf-standard a-2b     # archival
 ```
 
-`ua-1` enforces the tagging requirements of PDF/UA. Worth using if you want the
-document to hold up in a screen reader, though the default output is already
-tagged.
+`ua-1` enforces the tagging requirements of PDF/UA, including the rule that a
+document's first heading is level 1. Worth using if you want the document to
+hold up in a screen reader, though the default output is already tagged.
 
 ## Suggestions for the source document
 

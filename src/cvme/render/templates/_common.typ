@@ -31,11 +31,15 @@
 
 /// Name at the left margin, contact details hard against the right, on one
 /// line. Shared so a resume and its cover letter carry the same letterhead.
+///
+/// The name is a level-1 heading: it is the document's title, a tagged PDF
+/// wants exactly one, and PDF/UA-1 refuses a document whose first heading is
+/// deeper than that. It is not outlined, so no bookmark appears for it.
 #let letterhead(doc, s) = grid(
   columns: (1fr, auto), align: (left + bottom, right + bottom),
-  text(font: s.name_font, weight: s.name_weight, size: pt(s.name_size))[
-    #markup(doc.name)
-  ],
+  heading(level: 1, outlined: false,
+    text(font: s.name_font, weight: s.name_weight, size: pt(s.name_size),
+      markup(doc.name))),
   text(size: pt(s.contact_size))[
     #doc.contact.map(c => if c.url == none { markup(c.text) } else {
       link(c.url)[#markup(c.text)]
