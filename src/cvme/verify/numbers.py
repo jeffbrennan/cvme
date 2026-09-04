@@ -116,6 +116,8 @@ _NON_MEASUREMENT_UNITS = {
     "way",
 }
 _PRONOUN_UNITS = {"it", "them", "these", "those"}
+#: Magnitudes a spelled-out number can carry, as in "one billion records".
+_SCALE_WORDS = {"hundred", "thousand", "million", "billion", "trillion"}
 
 
 def _inside_identifier(text: str, start: int) -> bool:
@@ -232,6 +234,12 @@ def extract(text: str) -> list[Claim]:
     for match in _WORD_NUMBER.finditer(text):
         unit = _canonical_unit(match.group("unit"))
         if unit is None or unit in _NON_MEASUREMENT_UNITS:
+            continue
+        # "one identifier" is a determiner, not a count, and a resume is full
+        # of them. There is no inflation to catch: no corpus figure rounds
+        # down to one, and every other number still needs its source. "one
+        # billion" is a magnitude and stays a claim.
+        if match.group("word").lower() == "one" and unit not in _SCALE_WORDS:
             continue
         claims.append(
             Claim(

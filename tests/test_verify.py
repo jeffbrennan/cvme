@@ -50,6 +50,15 @@ def test_a_certificate_name_is_not_a_quantity() -> None:
     assert extract("Certificates: AZ-900, SOC2, ISO-27001") == []
 
 
+def test_one_before_a_singular_noun_is_a_determiner() -> None:
+    """Resolving records "to one identifier" is not a quantitative claim."""
+    assert extract("resolves records to one identifier") == []
+
+
+def test_one_before_a_magnitude_is_still_a_claim() -> None:
+    assert [claim.value for claim in extract("one billion records")] == [1.0]
+
+
 def test_a_numeric_range_still_extracts_both_ends() -> None:
     """The hyphen exclusion keys on a letter before it, not on the hyphen."""
     assert [claim.value for claim in extract("10-15 engineers")] == [10.0, 15.0]
