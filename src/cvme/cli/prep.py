@@ -263,7 +263,7 @@ def prep(
             rejected.append(name)
 
     if not no_report:
-        _write_report(config, hunt, posting, fit, spec, prompts)
+        _write_report(config, hunt, posting, fit, spec, prompts, base=wanted[0])
 
     changes = _changes(config, hunt, wanted, round_number)
     pages = ", ".join(
@@ -324,17 +324,18 @@ def _write_report(
     fit: Fit,
     spec: agents.AgentSpec,
     prompts: Path,
+    *,
+    base: str,
 ) -> None:
     """Compose the report: the computed score, then the agent's background.
 
     The score is written by cvme rather than asked of the agent, so nothing in
     the report claims a number that cannot be recomputed from the posting.
     """
-    base = config.document(next(iter(config.tailorable() or config.documents))).path
     bundle = build(
         document="report",
         template="report",
-        base_path=base,
+        base_path=config.document(base).path,
         job_path=hunt.posting,
         facts=config.project.facts,
         output_path=hunt.path / ".background.md",
