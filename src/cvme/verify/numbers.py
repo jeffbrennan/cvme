@@ -133,6 +133,7 @@ def _inside_identifier(text: str, start: int) -> bool:
         return True
     return before[-1] == "-" and len(before) > 1 and before[-2].isalpha()
 
+
 ClaimKey = tuple[float, str | None, str]
 
 

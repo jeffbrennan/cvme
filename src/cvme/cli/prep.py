@@ -150,6 +150,9 @@ def prep(
     company: Annotated[
         str, typer.Option("--company", help="Override the company name.")
     ] = "",
+    location: Annotated[
+        str, typer.Option("--location", help="Override the location.")
+    ] = "",
     note: Annotated[
         str, typer.Option("--note", help="Why this version exists; goes in the index.")
     ] = "",
@@ -189,6 +192,7 @@ def prep(
     )
     posting.title = title or posting.title
     posting.company = company or posting.company
+    posting.location = location or posting.location
     if not posting.description.strip():
         raise ConfigError("no description found; check the input")
 
