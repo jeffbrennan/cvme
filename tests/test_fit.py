@@ -93,3 +93,25 @@ def test_every_ladder_step_stops_at_its_floor(step) -> None:
 def test_every_preset_renders(resume_doc, preset: str, tmp_path: Path) -> None:
     result = fit(resume_doc, resolve(preset), output=tmp_path / f"{preset}.pdf")
     assert result.pages >= 1
+
+
+def test_a_gaps_section_never_reaches_the_pdf(tmp_path: Path) -> None:
+    """It lists what the corpus could not answer, addressed to the author.
+
+    The tailoring prompt asks for it by name, so it arrives in every generated
+    draft. Rendering it would hand the reader a list of your weaknesses.
+    """
+    import pdfplumber
+
+    doc = parse(
+        "---\nname: Morgan Avery\n---\n\n"
+        "## Summary\n\nBuilt the ingestion platform.\n\n"
+        "## Gaps\n\n- No Kafka experience is evidenced.\n"
+    )
+    output = tmp_path / "letter.pdf"
+    fit(doc, resolve("standard"), output=output)
+    with pdfplumber.open(output) as pdf:
+        text = pdf.pages[0].extract_text()
+    assert "Built the ingestion platform" in text
+    assert "Kafka" not in text
+    assert "Gaps" not in text

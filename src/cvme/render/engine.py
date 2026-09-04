@@ -34,7 +34,7 @@ REPRODUCIBLE_TIMESTAMP = 0
 
 def document_payload(doc: Document) -> dict[str, Any]:
     """Serialise the IR into the shape the template expects."""
-    payload = doc.model_dump()
+    payload = doc.sendable().model_dump()
     # PDF metadata is literal text, so recover it from the markup.
     payload["name_plain"] = to_plain(doc.name)
     payload["title"] = to_plain(doc.meta.get("title", "")) or payload["name_plain"]

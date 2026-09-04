@@ -110,6 +110,9 @@ def fit(
     """
     from cvme.render.engine import compile_document
 
+    # Ahead of the ladder, so the page budget and the overflow diagnostic both
+    # measure the document that will actually be sent.
+    doc = doc.sendable()
     output.parent.mkdir(parents=True, exist_ok=True)
     output.unlink(missing_ok=True)
     attempt = output.with_name(f".{output.stem}.{uuid4().hex}.pdf")

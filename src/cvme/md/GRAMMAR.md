@@ -87,3 +87,11 @@ Certificate: Data Science
 
 - **Languages**: Python (advanced), SQL (advanced)
 ```
+
+## Drafting sections
+
+A section titled `Gaps` is addressed to the author and is dropped at the render
+boundary. The tailoring prompt asks for one, listing every requirement the fact
+corpus could not answer, so it arrives in every generated draft; rendering it
+would hand the reader a list of your weaknesses. It stays in the markdown,
+where it is the reason for writing it, and `cvme verify` still reads it.
