@@ -28,7 +28,7 @@ import typer
 
 from cvme.cli.errors import handled
 from cvme.config import Config, find_config, load_config
-from cvme.errors import ConfigError
+from cvme.errors import ConfigError, VerificationFailed
 from cvme.generate import agent as agents
 from cvme.generate.bundle import build
 from cvme.generate.produce import generate, produce, write_prompt
@@ -225,6 +225,7 @@ def prep(
 
     prompts = hunt.path / ".prompts"
     produced = []
+    rejected: list[str] = []
     for name in wanted:
         document = config.document(name)
         stem = config.hunt_stem(name)
@@ -240,19 +241,26 @@ def prep(
             generate=config.generate,
             agent_output_path=Path(f"{stem}{round_number}.md"),
         )
-        produced.append(
-            produce(
-                bundle,
-                spec,
-                prompt_dir=prompts,
-                corpus=corpus,
-                style=style,
-                template=document.template,
-                verify=not no_verify,
-                should_render=not no_render,
-                echo=typer.echo,
+        try:
+            produced.append(
+                produce(
+                    bundle,
+                    spec,
+                    prompt_dir=prompts,
+                    corpus=corpus,
+                    style=style,
+                    template=document.template,
+                    verify=not no_verify,
+                    should_render=not no_render,
+                    echo=typer.echo,
+                )
             )
-        )
+        except VerificationFailed as exc:
+            # The gate holds: no PDF was produced. But the rest of the run is
+            # still worth having, and a rejected draft with a report beside it
+            # is what you fix from.
+            typer.echo(f"  {exc}")
+            rejected.append(name)
 
     if not no_report:
         _write_report(config, hunt, posting, fit, spec, prompts)
@@ -301,6 +309,12 @@ def prep(
     typer.echo(report.summary_line(fit))
     if not no_report:
         typer.echo(f"read {hunt.report} before you write anything by hand")
+    if rejected:
+        raise VerificationFailed(
+            f"{', '.join(rejected)} did not pass verification and "
+            f"{'was' if len(rejected) == 1 else 'were'} not rendered; "
+            "the draft and the report are in place to fix from"
+        )
 
 
 def _write_report(

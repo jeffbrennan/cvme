@@ -156,12 +156,20 @@ def test_new_forces_a_separate_hunt(project: Path) -> None:
     assert names[1].startswith("02_")
 
 
-def test_an_invented_metric_stops_the_run_before_the_pdf(project: Path) -> None:
-    result = prep(project, "--agent", "liar", "-d", "resume", "--no-report")
+def test_an_invented_metric_stops_the_pdf_but_not_the_run(project: Path) -> None:
+    """The gate holds, and the rest of the run is still what you fix from."""
+    result = prep(project, "--agent", "liar", "-d", "resume")
     assert result.exit_code == 3, result.output
-    apps_dir = next(iter(hunts(project).iterdir())) / "apps"
-    assert (apps_dir / "cv1.md").is_file(), "the draft is kept for inspection"
-    assert not (apps_dir / "cv1.pdf").exists()
+
+    hunt = next(iter(hunts(project).iterdir()))
+    assert (hunt / "apps" / "cv1.md").is_file(), "the draft is kept for inspection"
+    assert not (hunt / "apps" / "cv1.pdf").exists()
+    assert (hunt / "report.md").is_file(), "the report is still worth having"
+    assert (hunt / "apps" / "index.md").is_file()
+    assert "did not pass verification" in result.output
+
+    listed = apps(project, "list")
+    assert "Northwind Health" in listed.output, "and it is still tracked"
 
 
 def test_the_none_agent_leaves_prompts_and_a_score(project: Path) -> None:

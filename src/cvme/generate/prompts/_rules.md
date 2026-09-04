@@ -24,8 +24,16 @@ sections below. Copy it exactly as written there.
   third. "$98k" in the corpus does not license "$100k", or "~$100k", in the
   output. The checker compares normalised numeric values and will catch it.
 - Do not convert units to make a figure sound larger.
-- Tag each quantitative claim with the fact it came from, as an HTML comment at
-  the end of the line: `<!-- fact: m-example -->`. The id must exist in FACTS.
+- Tag each quantitative claim with the fact it came from, as an HTML comment:
+  `<!-- fact: m-example -->`. The id must exist in FACTS.
+- **The comment must sit on the same physical line as the number it sources.**
+  The check reads one line at a time, so a wrapped line that carries the number
+  and a comment on the line below is an uncited claim and is rejected. Where
+  wrapping would separate them, break the line earlier or put the comment
+  directly after the number, mid-sentence. It is invisible when rendered.
+- Every number needs its own comment, including ones you copied unchanged from
+  the BASE DOCUMENT. A number that was cited there is not cited here until you
+  write the comment again.
 - If the posting asks for something the corpus does not evidence, leave it out.
   Do not invent a project, a responsibility, a tool, or a team to cover a gap.
 - Where you had to leave a requirement unanswered, list it under a final

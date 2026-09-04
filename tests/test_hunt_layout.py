@@ -17,6 +17,17 @@ def test_a_slug_carries_the_sequence_company_role_and_date() -> None:
     assert slug == "01_northwind-health_staff-data-engineer_2026-01-04"
 
 
+def test_a_long_name_is_cut_at_a_word_boundary() -> None:
+    slug = make_slug(
+        1, "Probe Health", "Senior Data Engineer, Data Platform", date(2026, 1, 4)
+    )
+    assert slug == "01_probe-health_senior-data-engineer-data_2026-01-04"
+
+
+def test_a_single_long_word_is_still_cut() -> None:
+    assert layout.slugify("a" * 40) == "a" * 28
+
+
 def test_a_slug_survives_a_company_with_no_usable_characters() -> None:
     assert make_slug(7, "***", "!!!", date(2026, 1, 4)).startswith("07_unknown_role_")
 

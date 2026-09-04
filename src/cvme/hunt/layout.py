@@ -38,7 +38,12 @@ _ROUND = re.compile(r"(\d+)$")
 
 
 def slugify(value: str, limit: int = 28) -> str:
-    return _SLUG.sub("-", value.casefold()).strip("-")[:limit].strip("-")
+    """Lowercase and hyphenated, cut at a word boundary rather than mid-word."""
+    slug = _SLUG.sub("-", value.casefold()).strip("-")
+    if len(slug) <= limit:
+        return slug
+    head, sep, _ = slug[: limit + 1].rpartition("-")
+    return (head if sep else slug[:limit]).strip("-")
 
 
 def make_slug(sequence: int, company: str, title: str, when: date | None = None) -> str:
