@@ -170,6 +170,7 @@ def test_an_invented_metric_stops_the_pdf_but_not_the_run(project: Path) -> None
 
     listed = apps(project, "list")
     assert "Northwind Health" in listed.output, "and it is still tracked"
+    assert "cv1 (rejected)" in (hunt / "apps" / "index.md").read_text()
 
 
 def test_the_none_agent_leaves_prompts_and_a_score(project: Path) -> None:

@@ -273,6 +273,7 @@ def prep(
         produced,
         round_number=round_number,
         documents=wanted,
+        rejected=rejected,
         note=note,
     )
     typer.echo(f"  wrote {hunt.index}")
@@ -298,10 +299,17 @@ def _record(
     *,
     round_number: int,
     documents: list[str],
+    rejected: list[str],
     note: str,
 ) -> None:
     """Index this run: the application, the round, and the apps/index.md."""
-    written = [p for p in produced if p.markdown is not None]
+    # A rejected document is named too. Omitting it leaves an index that says
+    # only what was produced, when what you need later is why one is missing.
+    listed = [
+        f"{config.hunt_stem(p.document)}{round_number}"
+        for p in produced
+        if p.markdown is not None
+    ] + [f"{config.hunt_stem(name)}{round_number} (rejected)" for name in rejected]
     with ApplicationStore(config.search.database) as store:
         store.record(
             slug=hunt.slug,
@@ -319,9 +327,7 @@ def _record(
         store.add_round(
             slug=hunt.slug,
             number=round_number,
-            documents=", ".join(
-                f"{config.hunt_stem(p.document)}{round_number}" for p in written
-            ),
+            documents=", ".join(listed),
             pages=", ".join(
                 f"{p.document} {p.pages}p" for p in produced if p.pages is not None
             ),

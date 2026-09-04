@@ -117,6 +117,22 @@ _NON_MEASUREMENT_UNITS = {
 }
 _PRONOUN_UNITS = {"it", "them", "these", "those"}
 
+
+def _inside_identifier(text: str, start: int) -> bool:
+    """Whether the digits at ``start`` are part of a name rather than a count.
+
+    ``AZ-900``, ``SOC2`` and ``ISO-27001`` are certificates and standards, and
+    a resume's skills section is full of them. A digit welded to a letter, or
+    hyphenated straight onto one, is part of that token. A numeric range keeps
+    working: the hyphen in ``10-15`` follows a digit, not a letter.
+    """
+    before = text[:start]
+    if not before:
+        return False
+    if before[-1].isalpha():
+        return True
+    return before[-1] == "-" and len(before) > 1 and before[-2].isalpha()
+
 ClaimKey = tuple[float, str | None, str]
 
 
@@ -174,13 +190,16 @@ def extract(text: str) -> list[Claim]:
     """Every quantitative claim in a run of prose.
 
     Bare four-digit years are skipped: they are dates, not claims, and a
-    resume is full of them.
+    resume is full of them. So are digits inside an identifier such as
+    ``AZ-900``, which is a certificate rather than a quantity of anything.
     """
     claims: list[Claim] = []
 
     for match in _NUMBER.finditer(text):
         digits = match.group("value")
         if _YEAR.match(digits) and not match.group("scale"):
+            continue
+        if _inside_identifier(text, match.start("value")):
             continue
         value = float(digits.replace(",", ""))
         if scale := match.group("scale"):
