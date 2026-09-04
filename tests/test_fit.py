@@ -114,4 +114,6 @@ def test_a_gaps_section_never_reaches_the_pdf(tmp_path: Path) -> None:
         text = pdf.pages[0].extract_text()
     assert "Built the ingestion platform" in text
     assert "Kafka" not in text
-    assert "Gaps" not in text
+    # Upper-cased, because that is how the template sets a section header, and
+    # a case-sensitive check here would pass on an unfixed renderer.
+    assert "GAPS" not in text.upper()
