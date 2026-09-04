@@ -36,6 +36,7 @@ Under construction, milestone by milestone. See
 | M3 — fact corpus and the `cvme verify` guardrails | done |
 | M4 — job capture: ATS APIs, JSON-LD, manual paths | partial (offline tiers) |
 | M5 — agent-driven tailoring | done |
+| M7 — `cvme convert`: an existing PDF resume back into markdown | done |
 
 ## Design
 
@@ -46,6 +47,13 @@ representation, which a Typst template renders to PDF:
 markdown ──parse──▶ typed IR ──render──▶ Typst source ──compile──▶ PDF
                         ▲
                   style config (TOML)
+```
+
+`cvme convert` runs that pipeline backwards, so an existing PDF becomes a
+source file this project can render, verify and tailor:
+
+```
+PDF ──extract──▶ styled lines ──recover──▶ structure ──emit──▶ markdown
 ```
 
 Fonts are vendored and system fonts are disabled, and the PDF timestamp is
@@ -61,6 +69,25 @@ output lands in the configured directory:
 uv run cvme render resume
 uv run cvme render cover_letter
 ```
+
+Start from a resume you already have. `cvme convert` reads a PDF and writes
+the markdown grammar, so an existing document becomes an editable source file
+in one step:
+
+```bash
+uv run cvme convert base.pdf              # writes base.md beside it
+uv run cvme convert base.pdf -o resume.md
+uv run cvme convert base.pdf --stdout
+```
+
+Structure is recovered from geometry, because geometry is all a PDF records: a
+bold line larger than the body is a section header, a date hard against the
+right margin makes an entry header, a marker glyph followed by indented text is
+a bullet, and an indented line without a marker continues the bullet above it.
+Weight and slant become `**bold**` and `*italic*`, link annotations become
+markdown links, and spaces are rebuilt from the gaps between glyphs — word
+processors routinely emit no space characters at all. Read the result before
+rendering it: a PDF records layout, not intent.
 
 Capture a posting:
 
@@ -181,7 +208,7 @@ fails silently, and you find out after you have applied.
   [`src/cvme/verify/rules.toml`](src/cvme/verify/rules.toml).
 
 Exit codes are distinct so a script can tell failures apart: `1` bad input,
-`2` page budget, `3` verification, `4` fetch, `5` agent.
+`2` page budget, `3` verification, `4` fetch, `5` agent, `6` conversion.
 
 `cvme tailor` treats verification as a gate, not a report. A document that
 invents a metric is never rendered, and any PDF from an earlier run is removed

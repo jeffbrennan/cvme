@@ -564,6 +564,7 @@ no untyped defs, CI-enforced.
 | **M4** | `cvme job fetch` — JSON-LD, LinkedIn, Indeed, browser, manual | LinkedIn via HTTP; Indeed via browser or paste |
 | **M5** | Prompt suite, agent adapter, `cvme tailor` end-to-end | A tailored variant passes verify unassisted |
 | **M6** | `cvme apply <url>` one-shot, `cvme init` scaffolding, README | `cvme apply <url>` produces a reviewed application dir |
+| **M7** | `cvme convert` — PDF back into the grammar (§13) | Rendering the fixture and converting it back returns the same IR |
 
 M1 is the milestone that matters, and it is already part-built: `spikes/match/`
 renders your existing resume to spec (§12). What remains in M1 is the markdown
@@ -674,3 +675,55 @@ further would mean reproducing Word's arbitrariness rather than the design.
 
 Comparing geometry rather than PDF bytes is what makes this a usable
 regression test, and §9's golden-file strategy is built on it.
+
+---
+
+## 13. Conversion (Milestone 7)
+
+`cvme convert` reads an existing PDF resume and writes the grammar. It exists
+so the first document does not have to be retyped, and so a resume whose only
+surviving copy is a PDF can re-enter the pipeline.
+
+### 13.1 Pipeline
+
+```
+PDF ──extract──▶ styled lines ──recover──▶ structure ──emit──▶ markdown
+```
+
+`convert/pdftext.py` reads glyphs and their positions; `convert/structure.py`
+recovers structure and writes it out. The split matters: extraction is about
+what the PDF says, recovery is about what a resume means, and only the second
+half is heuristic.
+
+### 13.2 What extraction has to reconstruct
+
+A PDF has no words, lines or paragraphs. Three facts have to be recovered
+before structure can be read at all:
+
+| Fact | How |
+|---|---|
+| Spaces | Word processors emit positioned glyphs and no space characters. A gap wider than 0.2em is a space; kerning stays under 0.1em, so the two populations separate cleanly. |
+| Lines | Group by text-matrix baseline, not bounding box: a box top moves with ascender height, so a 19.5pt name and its 11pt contacts read as two lines. A 2.5pt tolerance covers a header whose two halves sit a fraction apart. |
+| Weight | From the font name (`Bold`, `SemiBold`, `Italic`), which is also what splits a bold role from its regular organisation — punctuation is unreliable, weight is not. |
+
+### 13.3 What structure infers
+
+| Construct | Signal |
+|---|---|
+| Letterhead | The first line of page 1, always. A name set large and bold is otherwise indistinguishable from a section header. |
+| Contacts | The right-hand column of that line, split on `|`, `•`, `·`. Link annotations supply the URL; failing that, an address becomes `mailto:` and a domain `https://`. |
+| Section header | Bold, at the left margin, and either larger than the body or set uppercase. Uppercase is title-cased back, since the template uppercases it again. |
+| Entry header | A bold left side at the margin with a right-aligned cluster, or a wholly bold line. The bold/regular boundary splits `Role @ Org`. |
+| Sub-entry | A second entry-like line one line-height below the first: `#### degree \| date`. |
+| Bullet | A marker glyph — from a symbol font, or one of the usual characters — followed by text at a deeper indent. A deeper marker nests. |
+| Continuation | Indented, no marker: the tail of the block above, joined with a space. |
+
+### 13.4 The gate
+
+The round-trip test is the specification: render `tests/fixtures/resume.md`,
+convert the PDF back, and require the same IR. It fails if the renderer and the
+converter ever disagree about what a document looks like, which is the only
+assertion that covers extraction, spacing, structure and emission at once.
+
+Conversion is a starting point and says so on stdout. A PDF records layout, not
+intent: the section a human reads as "Projects" is bold 12pt text either way.

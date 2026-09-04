@@ -40,3 +40,9 @@ class FitError(RenderError):
     """The document does not fit the configured page budget."""
 
     exit_code = 2
+
+
+class ConvertError(CvmeError):
+    """A PDF could not be converted to the markdown grammar."""
+
+    exit_code = 6

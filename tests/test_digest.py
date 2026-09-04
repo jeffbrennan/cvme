@@ -159,9 +159,7 @@ def test_digest_filters_blocks_and_writes_only_new_candidates(
         ),
     ]
     digest_module = importlib.import_module("cvme.cli.digest")
-    monkeypatch.setattr(
-        digest_module, "discover", lambda source, limiter=None: found
-    )
+    monkeypatch.setattr(digest_module, "discover", lambda source, limiter=None: found)
 
     calls: list[str] = []
 
@@ -203,9 +201,7 @@ def test_configured_detail_cap_leaves_excess_jobs_queued(
         for number in range(2)
     ]
     digest_module = importlib.import_module("cvme.cli.digest")
-    monkeypatch.setattr(
-        digest_module, "discover", lambda source, limiter=None: found
-    )
+    monkeypatch.setattr(digest_module, "discover", lambda source, limiter=None: found)
     calls: list[str] = []
 
     def fake_fetch(self, url: str) -> JobPosting:

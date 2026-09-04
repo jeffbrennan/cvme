@@ -429,6 +429,7 @@ dependencies = [
     { name = "html2text" },
     { name = "httpx" },
     { name = "markdown-it-py" },
+    { name = "pdfplumber" },
     { name = "pydantic" },
     { name = "pypdf" },
     { name = "pyyaml" },
@@ -441,7 +442,6 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "fonttools", extra = ["woff"] },
-    { name = "pdfplumber" },
     { name = "pyrefly" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -453,6 +453,7 @@ requires-dist = [
     { name = "html2text", specifier = ">=2025.4" },
     { name = "httpx", specifier = ">=0.28" },
     { name = "markdown-it-py", specifier = ">=3.0" },
+    { name = "pdfplumber", specifier = ">=0.11" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pypdf", specifier = ">=5.0" },
     { name = "pyyaml", specifier = ">=6.0" },
@@ -465,7 +466,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "fonttools", extras = ["woff"], specifier = ">=4.55" },
-    { name = "pdfplumber", specifier = ">=0.11" },
     { name = "pyrefly", specifier = ">=1.0" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-cov", specifier = ">=6.0" },
