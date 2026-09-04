@@ -565,6 +565,7 @@ no untyped defs, CI-enforced.
 | **M5** | Prompt suite, agent adapter, `cvme tailor` end-to-end | A tailored variant passes verify unassisted |
 | **M6** | `cvme apply <url>` one-shot, `cvme init` scaffolding, README | `cvme apply <url>` produces a reviewed application dir |
 | **M7** | `cvme convert` — PDF back into the grammar (§13) | Rendering the fixture and converting it back returns the same IR |
+| **M8** | `cvme ats` — check the rendered PDF as a parser reads it (§14) | A drawn bullet marker fails the check that a typed one passes |
 
 M1 is the milestone that matters, and it is already part-built: `spikes/match/`
 renders your existing resume to spec (§12). What remains in M1 is the markdown
@@ -727,3 +728,25 @@ assertion that covers extraction, spacing, structure and emission at once.
 
 Conversion is a starting point and says so on stdout. A PDF records layout, not
 intent: the section a human reads as "Projects" is bold 12pt text either way.
+
+---
+
+## 14. ATS checks (Milestone 8)
+
+Everything in `docs/machine-readability.md` was, until M7, a claim about how
+the output extracts. With a converter in the box those claims are testable: run
+structure recovery over your own PDF and compare it to the document you wrote.
+
+`cvme ats` renders the document, reads the PDF back, and reports the
+differences. The rules are listed in `docs/machine-readability.md`; the split
+between them is deliberate. An error means the document written and the
+document read are different documents -- a section lost, a bullet list that
+extracts as one paragraph, a letterhead with no address in it. A warning is a
+judgement call the author owns, such as a proficiency in parentheses or a
+section named something a parser will not map to a field.
+
+The test that justifies the command renders the fixture with `marker_glyph=""`.
+The output is visually identical apart from the marker shape, passes every
+other check, and loses every bullet boundary in extraction. Nothing in the
+source, the style or the rendered page shows it; only reading the artefact back
+does.

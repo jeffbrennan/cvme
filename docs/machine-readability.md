@@ -31,6 +31,35 @@ each date still extracts on the same line as its role.
 **The single-column layout is deliberate.** Multi-column resumes and sidebars
 are the most common cause of scrambled extraction. cvme does not offer one.
 
+## Checking it, rather than assuming it
+
+```bash
+cvme ats resume            # render, read the PDF back, report
+cvme ats out/resume.pdf    # check a PDF from anywhere
+```
+
+Everything above is a claim about how the output extracts. `cvme ats` is how
+that claim is tested: it renders the document, runs the converter over the
+result, and compares the structure a machine recovers against the structure you
+wrote. A section that goes missing, a bullet list that reads as one paragraph,
+a date that no longer sits with its role -- each is an error rather than a
+description.
+
+| Rule | Severity | What it catches |
+|---|---|---|
+| `ats:structure` | error | The recovered sections, entries or bullet counts differ from the source. |
+| `ats:symbol-font` | error | A glyph from Wingdings or similar, which extracts as junk. |
+| `ats:name`, `ats:email` | error | No name or address recoverable from the letterhead. |
+| `ats:dates` | warning | An entry's dates do not read as `Mon YYYY - Mon YYYY`. |
+| `ats:section-name` | warning | A section name parsers do not map to a field. |
+| `ats:bullets` | warning | No bullet list survives extraction. |
+| `ats:skill-parenthetical` | warning | A proficiency in parentheses, per the trade-off below. |
+| `ats:title`, `ats:author`, `ats:keywords` | warning | Metadata a parser reads first is empty. |
+| `ats:pages` | warning | More pages than the budget. |
+
+Warnings are judgement calls and errors are not: an error means the document
+you wrote and the document a parser reads are different documents.
+
 ## Options you can turn on
 
 ```bash

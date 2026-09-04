@@ -7,6 +7,7 @@ import sys
 import typer
 
 from cvme import __version__
+from cvme.cli.ats import ats
 from cvme.cli.convert import convert
 from cvme.cli.digest import digest
 from cvme.cli.errors import err_console, handled
@@ -26,6 +27,7 @@ app.command()(handled(init))
 app.command()(handled(render))
 app.command()(handled(convert))
 app.command()(handled(verify))
+app.command()(handled(ats))
 app.command()(digest)
 app.command()(tailor)
 app.add_typer(job_app, name="job")

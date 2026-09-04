@@ -37,6 +37,7 @@ Under construction, milestone by milestone. See
 | M4 — job capture: ATS APIs, JSON-LD, manual paths | partial (offline tiers) |
 | M5 — agent-driven tailoring | done |
 | M7 — `cvme convert`: an existing PDF resume back into markdown | done |
+| M8 — `cvme ats`: check the rendered PDF the way a parser reads it | done |
 
 ## Design
 
@@ -161,6 +162,22 @@ uv run cvme tailor northwind --dry-run          # print the prompt, change nothi
 uv run cvme tailor northwind --agent none       # write the prompt to paste elsewhere
 ```
 
+Check the artefact rather than the source. `cvme ats` renders the document,
+reads the PDF back with the converter, and reports every place where the
+machine reading differs from what was written:
+
+```bash
+uv run cvme ats resume        # render, read back, report
+uv run cvme ats out/resume.pdf --json
+```
+
+The checks are the questions a parser asks: is there text, does the letterhead
+yield an address, do the dates parse, do the bullets separate, are the sections
+named something it maps to a field, and does the structure it recovers match
+the structure you wrote. That last one is the whole question asked once, and it
+is why this exists: markers that are drawn rather than typed look perfect and
+extract as one undivided paragraph.
+
 Verification checks that every number is sourced and the prose does not read
 as generated:
 
@@ -208,7 +225,8 @@ fails silently, and you find out after you have applied.
   [`src/cvme/verify/rules.toml`](src/cvme/verify/rules.toml).
 
 Exit codes are distinct so a script can tell failures apart: `1` bad input,
-`2` page budget, `3` verification, `4` fetch, `5` agent, `6` conversion.
+`2` page budget, `3` verification and `cvme ats`, `4` fetch, `5` agent,
+`6` conversion.
 
 `cvme tailor` treats verification as a gate, not a report. A document that
 invents a metric is never rendered, and any PDF from an earlier run is removed
