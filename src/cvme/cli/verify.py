@@ -8,15 +8,9 @@ from typing import Annotated
 import typer
 
 from cvme.config import Config, find_config, load_config
-from cvme.errors import ConfigError, CvmeError
+from cvme.errors import ConfigError, VerificationFailed
 from cvme.verify.check import verify_file
 from cvme.verify.corpus import Corpus, load
-
-
-class VerificationFailed(CvmeError):
-    """A document made a claim it cannot support, or wrote like a machine."""
-
-    exit_code = 3
 
 
 def _targets(target: str | None, config: Config | None) -> list[Path]:

@@ -7,22 +7,18 @@ document that invents a metric should never reach a PDF.
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from cvme.cli.errors import handled
-from cvme.cli.verify import VerificationFailed
 from cvme.config import Config, find_config, load_config
 from cvme.errors import ConfigError
 from cvme.generate import agent as agents
 from cvme.generate.bundle import Bundle, build
-from cvme.md.parse import parse_file
-from cvme.render.fit import fit
+from cvme.generate.produce import produce
 from cvme.style.schema import resolve as resolve_style
-from cvme.verify.check import verify_file
 from cvme.verify.corpus import Corpus
 from cvme.verify.corpus import load as load_corpus
 
@@ -76,9 +72,7 @@ def tailor(
     config = _config(config_path)
     job_path = _job_path(job, config)
     wanted = (
-        [d.strip() for d in documents.split(",")]
-        if documents
-        else list(config.documents)
+        [d.strip() for d in documents.split(",")] if documents else config.tailorable()
     )
     if not wanted:
         raise ConfigError("no documents configured to tailor")
@@ -125,61 +119,15 @@ def tailor(
     workdir.mkdir(parents=True, exist_ok=True)
 
     for bundle in bundles:
-        prompt_file = workdir / f"{bundle.document}.prompt.md"
-        prompt_file.write_text(bundle.prompt, encoding="utf-8")
-
-        if spec.writes_nothing:
-            typer.echo(f"wrote {prompt_file}")
-            typer.echo("  paste it into any assistant, then run 'cvme verify'")
-            continue
-
-        typer.echo(f"running {spec.name} for {bundle.document}...")
-        with tempfile.TemporaryDirectory(prefix=f"cvme-{bundle.document}-") as tmp:
-            staging = Path(tmp)
-            staged_prompt = staging / "prompt.md"
-            staged_prompt.write_text(bundle.prompt, encoding="utf-8")
-            result = agents.run(spec, bundle.prompt, staging, staged_prompt)
-            if result.returncode != 0:
-                raise agents.AgentError(
-                    f"{spec.name} exited {result.returncode}\n"
-                    f"{(result.stderr or result.stdout).strip()[:1200]}"
-                )
-            staged_output = staging / bundle.agent_output_path
-            if not staged_output.is_file():
-                raise agents.AgentError(
-                    f"{spec.name} did not write {bundle.agent_output_path}.\n"
-                    f"  The prompt is at {prompt_file} if you want to run it by hand."
-                )
-            bundle.output_path.write_text(
-                staged_output.read_text(encoding="utf-8"), encoding="utf-8"
-            )
-        typer.echo(f"  wrote {bundle.output_path}")
-
-        if not no_verify:
-            report = verify_file(bundle.output_path, corpus, require_citations=True)
-            typer.echo(report.format())
-            if not report.ok:
-                # A PDF from an earlier run would now sit beside a rejected
-                # document and could be sent in the belief that it matches.
-                stale = bundle.output_path.with_suffix(".pdf")
-                if stale.is_file():
-                    stale.unlink()
-                    typer.echo(f"  removed {stale}, which no longer matches")
-                raise VerificationFailed(
-                    f"{bundle.output_path} did not pass verification; "
-                    "it has not been rendered"
-                )
-
-        if not no_render:
-            document = config.document(bundle.document)
-            style = resolve_style(document.style, document.overrides)
-            pdf = fit(
-                parse_file(bundle.output_path),
-                style,
-                output=bundle.output_path.with_suffix(".pdf"),
-                template=document.template,
-            )
-            typer.echo(
-                f"  wrote {bundle.output_path.with_suffix('.pdf')} "
-                f"({pdf.pages} page{'s' * (pdf.pages != 1)})"
-            )
+        document = config.document(bundle.document)
+        produce(
+            bundle,
+            spec,
+            prompt_dir=workdir,
+            corpus=corpus,
+            style=resolve_style(document.style, document.overrides),
+            template=document.template,
+            verify=not no_verify,
+            should_render=not no_render,
+            echo=typer.echo,
+        )

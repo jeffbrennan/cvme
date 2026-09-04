@@ -45,6 +45,16 @@ def test_equivalent_spellings_normalise_together(
     assert extract(text)[0].key == expected
 
 
+def test_a_certificate_name_is_not_a_quantity() -> None:
+    """AZ-900 is a certificate, and every resume skills section carries one."""
+    assert extract("Certificates: AZ-900, SOC2, ISO-27001") == []
+
+
+def test_a_numeric_range_still_extracts_both_ends() -> None:
+    """The hyphen exclusion keys on a letter before it, not on the hyphen."""
+    assert [claim.value for claim in extract("10-15 engineers")] == [10.0, 15.0]
+
+
 def test_bare_years_are_not_claims() -> None:
     """A resume is full of dates; treating them as claims would be useless."""
     assert extract("Jan 2019 – Dec 2020") == []

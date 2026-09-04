@@ -78,6 +78,7 @@ def add(
     ] = False,
     title: Annotated[str, typer.Option("--title", help="Job title.")] = "",
     company: Annotated[str, typer.Option("--company", help="Company name.")] = "",
+    location: Annotated[str, typer.Option("--location", help="Location.")] = "",
     output: Annotated[
         Path | None, typer.Option("--out", "-o", help="Directory to write into.")
     ] = None,
@@ -115,6 +116,7 @@ def add(
 
     posting.title = title or posting.title
     posting.company = company or posting.company
+    posting.location = location or posting.location
     if not posting.description.strip():
         raise ConfigError("no description found; check the input")
 

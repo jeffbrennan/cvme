@@ -17,8 +17,11 @@ stdin = true
 argv = ["opencode", "run", "{prompt}"]
 stdin = false
 
+# The permission mode is not optional. Without it a headless run is not allowed
+# to write, so the agent reports success having produced no file, and cvme's
+# only signal is the missing output.
 [agents.claude]
-argv = ["claude", "-p", "{prompt}"]
+argv = ["claude", "-p", "--permission-mode", "acceptEdits", "{prompt}"]
 stdin = false
 
 # Writes the prompt out and stops, so the tool stays useful with any assistant.

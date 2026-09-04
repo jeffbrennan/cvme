@@ -46,3 +46,15 @@ class ConvertError(CvmeError):
     """A PDF could not be converted to the markdown grammar."""
 
     exit_code = 6
+
+
+class VerificationFailed(CvmeError):
+    """A document made a claim it cannot support, or wrote like a machine."""
+
+    exit_code = 3
+
+
+class HuntError(CvmeError):
+    """A hunt directory or its tracking record is missing or inconsistent."""
+
+    exit_code = 7

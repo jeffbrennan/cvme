@@ -6,6 +6,9 @@ Write the result to: `{output_path}`
 
 ## Constraints
 
+- Every number carries `<!-- fact: id -->` on the same line as the number.
+  This is checked mechanically and is the most common reason a draft is
+  rejected; check each one before you finish.
 - Keep the frontmatter keys, and fill `recipient`, `subject` and `date` from
   the posting where it says enough to do so. Leave a key out rather than
   guessing at a hiring manager's name.

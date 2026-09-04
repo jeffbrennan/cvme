@@ -6,6 +6,9 @@ Write the result to: `{output_path}`
 
 ## Constraints
 
+- Every number carries `<!-- fact: id -->` on the same line as the number.
+  This is checked mechanically and is the most common reason a draft is
+  rejected; check each one before you finish.
 - Conform exactly to the grammar in the GRAMMAR section. It is parsed
   mechanically; a document that does not conform will not render.
 - Keep the frontmatter unchanged apart from `keywords`, which you may set from

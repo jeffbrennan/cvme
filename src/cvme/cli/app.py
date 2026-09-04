@@ -7,12 +7,14 @@ import sys
 import typer
 
 from cvme import __version__
+from cvme.cli.apps import app as apps_app
 from cvme.cli.ats import ats
 from cvme.cli.convert import convert
 from cvme.cli.digest import digest
 from cvme.cli.errors import err_console, handled
 from cvme.cli.init import init
 from cvme.cli.job import app as job_app
+from cvme.cli.prep import prep
 from cvme.cli.render import render
 from cvme.cli.tailor import tailor
 from cvme.cli.verify import verify
@@ -30,7 +32,9 @@ app.command()(handled(verify))
 app.command()(handled(ats))
 app.command()(digest)
 app.command()(tailor)
+app.command()(prep)
 app.add_typer(job_app, name="job")
+app.add_typer(apps_app, name="apps")
 
 
 @app.command()
