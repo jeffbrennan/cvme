@@ -40,6 +40,12 @@ def test_mentions_are_counted_so_repetition_carries_weight() -> None:
     assert found["dbt"] == 1
 
 
+def test_a_participle_spelling_still_matches() -> None:
+    """A corpus says "source-controlled"; a posting asks for "source control"."""
+    found = mentions("migrated to a source-controlled repository", load_lexicon())
+    assert found["git"] == 1
+
+
 def test_aliases_collapse_to_one_canonical_term() -> None:
     found = mentions("postgres and postgresql and psql", load_lexicon())
     assert found["postgresql"] == 3

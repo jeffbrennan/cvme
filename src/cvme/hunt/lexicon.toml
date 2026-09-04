@@ -94,7 +94,7 @@ helm = ["helm"]
 "azure devops" = ["azure devops", "ado pipelines"]
 jenkins = ["jenkins"]
 gitlab = ["gitlab ci", "gitlab"]
-git = ["git", "version control", "source control"]
+git = ["git", "version control", "source control", "version controlled", "source controlled"]
 linux = ["linux", "unix"]
 
 [serving]
