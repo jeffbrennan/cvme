@@ -379,6 +379,39 @@ adjustments and fails with a diagnostic naming the longest material if the
 floors are reached. See [docs/machine-readability.md](docs/machine-readability.md)
 for how the output reads to a parser.
 
+### Styles
+
+A style is a TOML file of resolved numbers in
+[`src/cvme/style/presets`](src/cvme/style/presets). Every preset below is one
+column, standard section names, real bullet glyphs and extractable text -- the
+things a parser reads -- so the choice between them is a choice about the
+human reader only.
+
+| Preset | Body | Name | The idea |
+|---|---|---|---|
+| `standard` | Carlito | Fira Code | The reference layout. No rules, no colour. |
+| `compact` | Carlito | Fira Code | `standard`, tightened, for a page and a half of content. |
+| `airy` | Carlito | Fira Code | `standard`, opened up, on a two-page budget. |
+| `rule` | IBM Plex Sans | Fira Code | Hairline separators, grey dates, one weight of emphasis. |
+| `ledger` | Source Serif 4 | JetBrains Mono | Editorial serif. Reads as a document rather than a form. |
+| `slate` | Inter | Fira Code | One navy accent, used on the name, the headings, the rules and the links. |
+| `quarto` | EB Garamond | IBM Plex Mono | Book serif, wide-tracked headings, no colour. |
+| `terminal` | Source Sans 3 | Fira Code | Section headings in the same monospace as the name, teal accent. |
+| `brief` | Source Sans 3 | Fira Code | Density first: the most bullets that stay comfortable on one page. |
+
+The knobs each one sets are fields on `Style`, and any of them overrides from
+the command line:
+
+```bash
+uv run cvme render resume.md --style rule --set accent='#7a1f2b'
+uv run cvme render resume.md --style ledger --set section_rule=0    # no rules
+uv run cvme render resume.md --style slate --set link_underline=true
+```
+
+Colour fields fall back rather than default: an empty `accent` is `ink`, and an
+empty `date_color` is `muted` before it is `ink`. A preset therefore reads as
+the short list of decisions it actually makes.
+
 The authoring grammar is [`src/cvme/md/GRAMMAR.md`](src/cvme/md/GRAMMAR.md).
 `tests/fixtures/resume.md` is a complete worked example.
 

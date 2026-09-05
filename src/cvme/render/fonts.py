@@ -11,12 +11,34 @@ from pathlib import Path
 
 FONT_DIR = Path(__file__).parent / "fonts"
 
+#: Body families, each vendored in the three faces a document needs. The name
+#: tables are rewritten at fetch time so that one family holds all three, which
+#: is what lets ``body_font`` name a family and nothing else.
+BODY_FAMILIES: tuple[str, ...] = (
+    "Carlito",
+    "IBMPlexSans",
+    "SourceSans3",
+    "SourceSerif4",
+    "EBGaramond",
+    "Inter",
+)
+FACES: tuple[str, ...] = ("Regular", "SemiBold", "Italic")
+
+#: Display faces for the letterhead. One weight each.
+DISPLAY: dict[str, str] = {
+    "Fira Code": "FiraCode-SemiBold.ttf",
+    "IBM Plex Mono": "IBMPlexMono-SemiBold.ttf",
+    "JetBrains Mono": "JetBrainsMono-SemiBold.ttf",
+}
+
 #: Files that must be present for the bundled presets to render as designed.
 REQUIRED: dict[str, str] = {
-    "Carlito": "Carlito-Regular.ttf",
-    "Carlito Bold": "Carlito-Bold.ttf",
-    "Carlito Italic": "Carlito-Italic.ttf",
-    "Fira Code": "FiraCode-SemiBold.ttf",
+    **{
+        f"{family} {face}": f"{family}-{face}.ttf"
+        for family in BODY_FAMILIES
+        for face in FACES
+    },
+    **DISPLAY,
 }
 
 

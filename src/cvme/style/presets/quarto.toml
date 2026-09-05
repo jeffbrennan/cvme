@@ -1,0 +1,41 @@
+# Classic book serif, wide-tracked headings.
+#
+# EB Garamond has a small x-height, so it is set two points larger than the
+# sans presets and still occupies less width -- which is where the extra
+# bullets come from. Nothing here is coloured: the hierarchy is size, tracking
+# and one hairline.
+[style]
+# A tighter bullet gutter than the default. The marker only has to read as a
+# marker; the width it gives back goes into the line, and a line that no longer
+# wraps is worth more than the indent it cost.
+marker_indent = 11.0
+body_indent = 9.0
+marker_size = 6.5
+
+body_font = "EB Garamond"
+body_size = 12.0
+leading = 4.9
+ink = "#000000"
+accent = "#000000"
+muted = "#4f4f4f"
+
+name_font = "IBM Plex Mono"
+name_size = 18.0
+name_tracking = -0.5
+contact_size = 10.5
+header_gap = 12.0
+link_underline = false
+
+section_size = 10.5
+section_tracking = 2.0
+section_gap_before = 9.5
+section_gap_after = 4.5
+section_rule = 0.5
+section_rule_gap = 3.0
+section_rule_color = "#9a9a9a"
+
+entry_gap_before = 5.4
+date_size = 10.5
+date_weight = "regular"
+org_weight = "regular"
+sub_weight = "regular"

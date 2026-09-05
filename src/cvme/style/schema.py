@@ -28,30 +28,71 @@ class Style(BaseModel):
     paper: str = "us-letter"
     margin_x: float = 57.6
     margin_y: float = 36.0
+
+    # Ink is the body colour and the fallback for every other colour here: a
+    # style sets only the ones it wants to differ, and an empty string means
+    # "whatever this element inherits". That keeps a preset readable as the
+    # short list of decisions it actually makes.
     ink: str = "#000000"
+    accent: str = ""  # section headings and rules; falls back to ink
+    muted: str = ""  # dates, organisations, contact line; falls back to ink
 
     # body text
     body_font: str = "Carlito"
     body_size: float = 11.0
     leading: float = 6.4
 
+    # Inline `**bold**`. A resume carries a lot of it -- every skill label,
+    # every role -- and turning it down in one place is how a page stops
+    # reading as shouted without editing the markdown.
+    strong_weight: str = "bold"
+    strong_color: str = ""
+
+    # links. Underlining every URL is the browser's convention, not print's,
+    # and on a resume it draws the eye to the least important line on the page.
+    link_underline: bool = True
+    link_color: str = ""
+
     # name and contact line
     name_font: str = "Fira Code"
     name_size: float = 19.5
     name_weight: int = 600
+    name_tracking: float = 0.0
+    name_color: str = ""
     contact_size: float = 11.0
     contact_sep: str = " | "
+    contact_color: str = ""  # falls back to muted, then ink
     header_gap: float = 10.0
+    # A rule under the letterhead. Zero weight draws nothing.
+    header_rule: float = 0.0
+    header_rule_gap: float = 5.0
+    header_rule_color: str = ""  # falls back to accent
 
     # section headers
+    section_font: str = ""  # falls back to body_font
     section_size: float = 12.0
+    section_weight: str = "bold"
     section_uppercase: bool = True
+    section_tracking: float = 0.0
     section_gap_before: float = 7.0
     section_gap_after: float = 11.3
+    # A rule under each section heading: the separator that tells a reader
+    # where one part of the document ends. Zero weight draws nothing.
+    section_rule: float = 0.0
+    section_rule_gap: float = 3.0
+    section_rule_color: str = ""  # falls back to accent
 
     # entries
     entry_gap_before: float = 6.7
+    entry_weight: str = "bold"  # a `### Left | Right` with no ` @ ` split
+    role_weight: str = "bold"
+    org_weight: str = "regular"
+    org_color: str = ""
+    sub_weight: str = "bold"
+    sub_color: str = ""
     date_size: float = 10.0
+    date_weight: str = "bold"
+    date_color: str = ""  # falls back to muted, then ink
     role_sep: str = " – "  # en dash, as in the reference layout
 
     # bullets. marker_glyph is a real character so that it survives text

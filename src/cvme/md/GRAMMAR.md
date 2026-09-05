@@ -28,11 +28,11 @@ which is what most automated readers look at first.
 
 | Construct | Meaning |
 |---|---|
-| `## Heading` | Section. Rendered uppercase and bold, with no rule beneath. |
+| `## Heading` | Section. Rendered uppercase and bold; whether a rule is drawn beneath it is the style's call, not the document's. |
 | `### Left \| Right` | Entry header. Text after `\|` is set hard against the right margin, on the same line. |
 | `### Role @ Org \| Dates` | Inside an experience section, ` @ ` splits the left side so the role sets bold and the organisation regular, as `**Role** – Org`. |
 | `#### Left \| Right` | A second entry line with the same split. Education uses it for `degree \| date`. |
-| Paragraph | Prose. Under an entry it is an unstyled follow-on line. |
+| Paragraph | Prose. Under an entry it is an unstyled follow-on line. Before the first `##` it opens an untitled section, which is how a summary is written without a heading. |
 | `- item` | Bullet, tight, hanging indent. One level of nesting is supported. |
 | `---` | Explicit page break. |
 

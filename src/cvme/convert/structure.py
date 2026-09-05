@@ -47,6 +47,9 @@ _WRAP = 79
 _SEPARATORS = "–—-|,·@:"
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[a-z]{2,}$", re.I)
 _URLISH = re.compile(r"^(?:https?://)?[\w.-]+\.[a-z]{2,}(?:/\S*)?$", re.I)
+_PHONE = re.compile(r"^\+?[\d][\d().\s-]{6,}$")
+#: Punctuation that marks prose rather than a contact detail.
+_SENTENCE = re.compile(r"[.:;!?]")
 _MD_SPECIAL = re.compile(r"([\\*_`\[\]])")
 
 
@@ -88,21 +91,26 @@ def to_markdown(layout: Layout) -> str:
 
 
 def _read_header(out: _Out, lines: list[Line], layout: Layout) -> int:
-    """Read the letterhead: everything before the first section header.
+    """Read the letterhead: the name, and any contact rows beneath it.
 
-    The search starts below the first line because a name set large and bold
-    is indistinguishable from a section header by style alone. Position
-    settles it: the top line of a resume is its letterhead.
+    The name is the top line, by position rather than by style: set large and
+    bold, it is indistinguishable from a section header otherwise.
+
+    The rows under it are taken only while they still read as contact details.
+    Ending the letterhead at the first section header instead would be simpler,
+    but a resume whose summary carries no heading -- which the grammar allows,
+    and which is a common way to write one -- puts prose directly under the
+    name, and folding that in yields a document with a paragraph for an email
+    address.
     """
-    end = next(
-        (i for i, line in enumerate(lines) if i and _is_section(line, layout)),
-        len(lines),
-    )
-    head = lines[:end]
-    if not head:
+    if not lines:
         return 0
-    left, right = _split_right(head[0], layout, anywhere=True)
+    left, right = _split_right(lines[0], layout, anywhere=True)
     out.name = _plain(left)
+    end = 1
+    while end < len(lines) and _is_contact_row(lines[end], layout):
+        end += 1
+    head = lines[:end]
     tail = [text for line in head[1:] for text in _contacts(line.runs)]
     for text in _contacts(right) + tail:
         out.contact.append(_Contact(text=text, url=_url(text)))
@@ -112,6 +120,34 @@ def _read_header(out: _Out, lines: list[Line], layout: Layout) -> int:
                 if contact.text in run.text or run.text.strip() in contact.text:
                     contact.url = run.url
     return end
+
+
+def _is_contact_row(line: Line, layout: Layout) -> bool:
+    """A second letterhead row: contact atoms, and nothing that is not one.
+
+    At least one hard atom -- an address, a URL, a phone number -- is required,
+    so that a date line or an opening sentence cannot pass on the strength of
+    being short.
+    """
+    if _is_section(line, layout):
+        return False
+    parts = _contacts(line.runs)
+    return (
+        bool(parts)
+        and all(_is_contact_atom(part) for part in parts)
+        and any(_is_hard_contact(part) for part in parts)
+    )
+
+
+def _is_hard_contact(text: str) -> bool:
+    return bool(_EMAIL.match(text) or _URLISH.match(text) or _PHONE.match(text))
+
+
+def _is_contact_atom(text: str) -> bool:
+    """A contact atom, or a short qualifier such as a city or a pronoun set."""
+    if _is_hard_contact(text):
+        return True
+    return len(text) <= 40 and len(text.split()) <= 6 and not _SENTENCE.search(text)
 
 
 def _contacts(runs: tuple[Run, ...]) -> list[str]:

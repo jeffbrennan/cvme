@@ -90,3 +90,20 @@ def test_output_is_reproducible(resume_doc, standard: Style, tmp_path: Path) -> 
     a = compile_document(resume_doc, standard, output=tmp_path / "a.pdf")
     b = compile_document(resume_doc, standard, output=tmp_path / "b.pdf")
     assert a.read_bytes() == b.read_bytes()
+
+
+def test_every_section_opens_at_the_same_distance_from_its_heading(geo) -> None:
+    """Whether a section leads with an entry or with bullets is not visible.
+
+    Experience opens with an entry heading and Skills with a bullet list, which
+    reach the page by different routes: a heading is boxed, and a list is a
+    block with spacing of its own. They land at the same distance because both
+    routes end in one paragraph gap, and that is worth holding -- suppressing
+    either one is what makes a section look mis-set.
+    """
+    opens: list[float] = []
+    for i, line in enumerate(geo.lines[:-1]):
+        if line.text in {"EXPERIENCE", "EDUCATION", "SKILLS"}:
+            opens.append(round(line.baseline - geo.lines[i + 1].baseline, 1))
+    assert len(opens) == 3
+    assert max(opens) - min(opens) < 0.5
