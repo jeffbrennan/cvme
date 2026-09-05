@@ -16,8 +16,12 @@
 // extraction, or a parser cannot tell a new bullet from a wrapped line. Set
 // marker_glyph to "" to draw a square instead, which looks closer to the
 // reference but leaves no character behind.
+// A tight list spaces its items by the paragraph leading. `bullet_gap` adds to
+// that, which is the only way to loosen a run of bullets without also opening
+// up the lines inside each one.
 #set list(
-  tight: true,
+  tight: s.bullet_gap <= 0,
+  spacing: if s.bullet_gap > 0 { pt(s.leading + s.bullet_gap) } else { auto },
   marker: if s.marker_glyph == "" {
     box(width: pt(s.marker_size), height: pt(s.marker_size), fill: ink(s.ink),
         baseline: pt(s.marker_baseline))
@@ -77,16 +81,17 @@
   // balances a wrapped bullet, and the second is worth having on a page whose
   // dates are not being cleared: with no width, a two-line bullet fills its
   // first line and drops a stub on the second.
-  // Narrowing a block is how the inset is applied and also how a wrapped
-  // bullet is balanced, so an inset implies balancing. Without one, balancing
-  // is opt-in: it is free in height but not in line rhythm, because an item
-  // given a width is a block.
+  // A width is what applies the inset and also what balancing needs, so either
+  // switches narrowing on. They are otherwise independent: the default is a
+  // width with greedy filling, so a bullet's first line runs the whole measure
+  // and stops at the edge the inset cut it to.
   let narrow = inset > 0pt or s.balance_bullets
   let body = (items, ..rest) => blocks(
     items, ..rest,
     text_width: if narrow { text_width - inset } else { none },
     bullet_width: if narrow { body_width } else { none },
     nested_indent: pt(s.marker_indent) + pt(s.body_indent),
+    balance: s.balance_bullets,
   )
 
   for (i, sec) in doc.sections.enumerate() {

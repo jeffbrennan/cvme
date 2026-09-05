@@ -31,8 +31,8 @@ from cvme.render.engine import compile_document
 from cvme.style.schema import Style
 
 
-def _rows(pdf: Path) -> list[tuple[float, float, str]]:
-    """Every visual line as (x0, x1, text), without merging across the page."""
+def _rows(pdf: Path) -> list[tuple[float, float, str, float]]:
+    """Every visual line as (x0, x1, text, top), without merging across pages."""
     with pdfplumber.open(pdf) as doc:
         page = doc.pages[0]
         grouped: dict[float, list[dict]] = {}
@@ -43,8 +43,9 @@ def _rows(pdf: Path) -> list[tuple[float, float, str]]:
             min(w["x0"] for w in ws),
             max(w["x1"] for w in ws),
             " ".join(w["text"] for w in sorted(ws, key=lambda w: w["x0"])),
+            top,
         )
-        for _, ws in sorted(grouped.items())
+        for top, ws in sorted(grouped.items())
     ]
 
 
@@ -61,7 +62,7 @@ def _date_left(pdf: Path) -> float:
     return min(r[0] for r in dates)
 
 
-def _bullets(pdf: Path) -> list[tuple[float, float, str]]:
+def _bullets(pdf: Path) -> list[tuple[float, float, str, float]]:
     """Rows of bullet text, found by their shared left edge.
 
     The indent is not `margin_x + marker_indent + body_indent`: the fit ladder
@@ -141,3 +142,56 @@ def test_balancing_costs_no_height(
     plain = _render(resume_doc, standard, tmp_path / "plain.pdf")
     balanced = _render(resume_doc, even, tmp_path / "even.pdf")
     assert len(_rows(balanced)) == len(_rows(plain))
+
+
+def test_without_balancing_the_first_line_fills_the_measure(
+    resume_doc: Document, gutter: Style, tmp_path: Path
+) -> None:
+    """The default is greedy: fill to the gutter, then finish the sentence.
+
+    Balancing evens the lines at the cost of leaving the first one short, which
+    is the wrong trade where the measure was cut to stop at something.
+    """
+    pdf = _render(resume_doc, gutter, tmp_path / "greedy.pdf")
+    rows = _bullets(pdf)
+    widest = max(r[1] for r in rows)
+    wrapped = [r for r in rows if r[1] > widest - 12.0]
+    assert len(wrapped) >= 3, "the reference document should wrap several bullets"
+
+
+def test_bullet_gap_opens_the_list_without_opening_the_lines(
+    resume_doc: Document, standard: Style, tmp_path: Path
+) -> None:
+    """Space lands between items, not between the lines inside one.
+
+    Rendered with the page budget raised so the fit ladder stays out of it: at
+    one page the ladder would tighten something else to absorb the gap.
+
+    A tight list spaces items by the same leading it puts between the lines of
+    one item, so every gap in the tight render is the same. Adding a bullet gap
+    should split them in two: the within-item gap unchanged, and a between-item
+    gap that much larger.
+    """
+    unbudgeted = standard.model_copy(update={"max_pages": 3})
+    loose_style = unbudgeted.model_copy(update={"bullet_gap": 3.0})
+    tight = _render(resume_doc, unbudgeted, tmp_path / "tight.pdf")
+    loose = _render(resume_doc, loose_style, tmp_path / "loose.pdf")
+
+    def common_gaps(pdf: Path) -> list[float]:
+        """The gaps a run of bullet lines repeats, commonest first.
+
+        Measured on bullet rows, not every word on the page: an entry heading
+        beside its date and a section rule contribute gaps of their own. Taken
+        by frequency rather than by range, so no cutoff has to assume the
+        answer.
+        """
+        tops = sorted(r[3] for r in _bullets(pdf))
+        seen = Counter(round(b - a, 1) for a, b in zip(tops, tops[1:], strict=False))
+        return [gap for gap, _ in seen.most_common(2)]
+
+    within = common_gaps(tight)[0]
+    loose_gaps = common_gaps(loose)
+    # One gap holds the lines of a bullet together, unchanged.
+    assert min(loose_gaps) == pytest.approx(within, abs=0.2)
+    # The other separates one bullet from the next, and is wider by the gap.
+    assert max(loose_gaps) == pytest.approx(within + 3.0, abs=0.4)

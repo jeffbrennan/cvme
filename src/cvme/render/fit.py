@@ -70,18 +70,42 @@ def _scale_type(factor: float, floor: float) -> Callable[[Style], Style | None]:
     return step
 
 
-#: Ordered by how little each costs the reader. Leading tightens invisibly;
-#: margins are the last thing to give.
-LADDER: list[Step] = [
-    Step("leading", _shrink("leading", 0.3, floor=4.8)),
-    Step("entry gaps", _shrink("entry_gap_before", 0.7, floor=3.0)),
-    Step("section gap above", _shrink("section_gap_before", 0.7, floor=3.5)),
-    Step("section gap below", _shrink("section_gap_after", 0.8, floor=7.0)),
-    Step("header gap", _shrink("header_gap", 1.0, floor=4.0)),
-    Step("type size", _scale_type(0.98, floor=9.0)),
-    Step("vertical margins", _shrink("margin_y", 3.6, floor=21.6)),
-    Step("horizontal margins", _shrink("margin_x", 3.6, floor=43.2)),
-]
+#: How far the margins may be given up when nothing is said. These were the
+#: fixed floors before they were settable, so a document that does not mention
+#: them tightens exactly as it always did.
+DEFAULT_MARGIN_X_MIN = 43.2
+DEFAULT_MARGIN_Y_MIN = 21.6
+
+
+def ladder(style: Style) -> list[Step]:
+    """The density steps, ordered by how little each costs the reader.
+
+    Leading tightens invisibly; margins are the last thing to give. The margin
+    floors come from the style because how narrow a margin may get is a
+    judgement about the page, not a property of the renderer: a document that
+    wants white space at its edges says so, and the ladder spends its other
+    steps instead of reaching past that.
+    """
+    return [
+        Step("leading", _shrink("leading", 0.3, floor=4.8)),
+        Step("entry gaps", _shrink("entry_gap_before", 0.7, floor=3.0)),
+        Step("section gap above", _shrink("section_gap_before", 0.7, floor=3.5)),
+        Step("section gap below", _shrink("section_gap_after", 0.8, floor=7.0)),
+        Step("header gap", _shrink("header_gap", 1.0, floor=4.0)),
+        Step("type size", _scale_type(0.98, floor=9.0)),
+        Step(
+            "vertical margins",
+            _shrink("margin_y", 3.6, floor=style.margin_y_min),
+        ),
+        Step(
+            "horizontal margins",
+            _shrink("margin_x", 3.6, floor=style.margin_x_min),
+        ),
+    ]
+
+
+#: Kept for callers that want the shape of the ladder without a style in hand.
+LADDER: list[Step] = ladder(Style())
 
 
 @dataclass(frozen=True)
@@ -116,6 +140,7 @@ def fit(
     output.parent.mkdir(parents=True, exist_ok=True)
     output.unlink(missing_ok=True)
     attempt = output.with_name(f".{output.stem}.{uuid4().hex}.pdf")
+    steps = ladder(style)
 
     def publish(result: FitResult) -> FitResult:
         os.replace(attempt, output)
@@ -135,7 +160,7 @@ def fit(
         current = style
         for _ in range(MAX_ITERATIONS):
             progressed = False
-            for step in LADDER:
+            for step in steps:
                 tightened = step.apply(current)
                 if tightened is None:
                     continue

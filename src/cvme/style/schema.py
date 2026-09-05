@@ -111,8 +111,19 @@ class Style(BaseModel):
     # shift puts the marker on its own baseline, which splits the line in
     # extracted text. The drawn-box marker wants about -0.5.
     marker_baseline: float = 0.0
+    # How far the fit ladder may cut into the margins before it gives up. The
+    # defaults are the floors from when they were fixed, so a document that
+    # says nothing tightens as it always did; raise them to keep white space at
+    # the edges and make the ladder spend its other steps instead.
+    margin_x_min: float = 43.2
+    margin_y_min: float = 21.6
+
     marker_indent: float = 18.0
     body_indent: float = 10.9
+    # Extra space between one bullet and the next, on top of the leading a
+    # tight list already puts there. Zero is a tight list, which is the
+    # default: a resume that is not short wants the space back.
+    bullet_gap: float = 0.0
     # Space between the end of a body line and the column the dates occupy.
     # Body text is held clear of that column so the page has a right edge to
     # follow, instead of bullets running the full width under the dates.
@@ -120,11 +131,12 @@ class Style(BaseModel):
     # clear costs the width of the date column, and whether a page can afford
     # that depends on how much is on it. Set it per document to switch on.
     date_gutter: float = -1.0
-    # Even out the lines of a bullet that wraps, instead of letting the first
-    # line fill and the rest fall short. Off by default: it reaches the page by
-    # giving each item a width, and an item with a width is a block, which
-    # shifts the line rhythm slightly where an item ends. A document setting
-    # date_gutter gets this regardless -- the inset is the same mechanism.
+    # Even out the lines of a bullet that wraps, rather than filling the first
+    # and letting the rest run short. Off by default, and worth leaving off
+    # where date_gutter is set: the first line then runs to the gutter, which
+    # is the edge it was cut to, and the second finishes the sentence. Turn it
+    # on for a page with no column to stop short of, where a first line that
+    # fills the whole measure leaves a stub under it.
     balance_bullets: bool = False
 
     # letters
