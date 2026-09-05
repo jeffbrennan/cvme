@@ -1,0 +1,50 @@
+# The serif family. The same design as `sans`, set in a text serif.
+#
+# Everything structural is shared with `sans` -- mono name and section
+# headings, a rule under the letterhead, a hairline under each section, bold
+# on roles and skill labels only, italic organisations. What changes is the
+# body face and the space around it.
+#
+# Source Serif 4 has a large x-height for a serif, which is why it holds up at
+# these sizes, and also why it needs more leading than the sans does: set at
+# the same rhythm the page reads as dense rather than as set. It is given a
+# point less size, a point more leading, and wider measure to spend it on.
+#
+#     cvme render base --style serif --accent burgundy
+[style]
+body_font = "Source Serif 4"
+body_size = 10.0
+leading = 5.85
+margin_x = 50.4  # 0.7in: the leading has to come from somewhere
+ink = "#16191d"
+accent = "#16191d"
+muted = "#586069"
+
+marker_indent = 11.0
+body_indent = 9.0
+marker_size = 6.0
+
+name_font = "Fira Code"
+name_size = 18.5
+name_tracking = -0.5
+contact_size = 9.75
+header_gap = 11.0
+header_rule = 1.2
+header_rule_gap = 5.0
+link_underline = false
+
+section_font = "Fira Code"
+section_size = 9.5
+section_tracking = 0.4
+section_gap_before = 9.5
+section_gap_after = 5.0
+section_rule = 0.7
+section_rule_gap = 3.0
+section_rule_color = "#a9b1b9"
+
+entry_gap_before = 5.6
+date_size = 9.25
+date_weight = "regular"
+org_weight = "regular"
+org_style = "italic"
+sub_weight = "regular"

@@ -13,6 +13,7 @@ from cvme.errors import ConfigError
 from cvme.md.parse import parse_file
 from cvme.render.engine import compile_document
 from cvme.render.fit import fit
+from cvme.style import color
 from cvme.style.schema import Style, resolve
 
 
@@ -71,7 +72,14 @@ def render(
     ] = None,
     style: Annotated[
         str | None,
-        typer.Option("--style", help="Preset: standard, compact, airy, letter."),
+        typer.Option("--style", help="Preset: sans, serif, standard, compact, airy."),
+    ] = None,
+    accent: Annotated[
+        str | None,
+        typer.Option(
+            "--accent",
+            help=f"Accent colour: #rrggbb, or {', '.join(sorted(color.NAMED))}.",
+        ),
     ] = None,
     template: Annotated[
         str | None, typer.Option("--template", help="Template name.")
@@ -114,6 +122,11 @@ def render(
 
     overrides = dict(document.overrides)
     overrides.update(_overrides(set_ or []))
+    # After --set, so that an explicit --set accent=... is not overwritten by
+    # the flag's own normalisation of the same value.
+    chosen = accent or (config.accent.default if config else "")
+    if chosen:
+        overrides["accent"] = color.parse(chosen)
     if max_pages is not None:
         overrides["max_pages"] = max_pages
     if pdf_standard is not None:

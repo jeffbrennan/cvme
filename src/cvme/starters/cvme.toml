@@ -16,7 +16,9 @@ facts = ["facts/skills.md", "facts/metrics.md"]
 [documents.resume]
 path = "base/resume.md"
 template = "resume"
-style = "standard"
+# sans, serif, standard, compact or airy. `cvme render --style X` tries another
+# without editing this.
+style = "sans"
 # The filename stem inside a hunt's apps/ directory, so versions are cv1.md,
 # cv2.md rather than resume1.md. Defaults to the document's name.
 hunt_stem = "cv"
@@ -30,6 +32,18 @@ max_pages = 1
 path = "base/cover_letter.md"
 template = "cover_letter"
 style = "letter"
+
+# The one colour the documents spend: the name, the section headings, the rule
+# under the letterhead and the links all take it. Named colours are in
+# src/cvme/style/color.py; hex works too, and is checked for contrast. Leave
+# `default` empty for a monochrome document.
+[accent]
+default = ""
+
+# An accent per company, used by `cvme prep` when preparing for them, so
+# matching a posting's branding needs no flag.
+# [accent.companies]
+# "Northwind Analytics" = "#004b87"
 
 [generate]
 # Which agent `cvme tailor` invokes. See `cvme doctor` for what is installed,

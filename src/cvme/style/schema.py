@@ -34,7 +34,11 @@ class Style(BaseModel):
     # "whatever this element inherits". That keeps a preset readable as the
     # short list of decisions it actually makes.
     ink: str = "#000000"
-    accent: str = ""  # section headings and rules; falls back to ink
+    # The accent surfaces -- the name, the section headings, the rule under
+    # the letterhead, the links -- all take their colour from here unless they
+    # override it, so matching a company's branding is one value. Unset means
+    # ink, and a monochrome document.
+    accent: str = ""
     muted: str = ""  # dates, organisations, contact line; falls back to ink
 
     # body text
@@ -51,14 +55,14 @@ class Style(BaseModel):
     # links. Underlining every URL is the browser's convention, not print's,
     # and on a resume it draws the eye to the least important line on the page.
     link_underline: bool = True
-    link_color: str = ""
+    link_color: str = ""  # falls back to accent, then ink
 
     # name and contact line
     name_font: str = "Fira Code"
     name_size: float = 19.5
     name_weight: int = 600
     name_tracking: float = 0.0
-    name_color: str = ""
+    name_color: str = ""  # falls back to accent, then ink
     contact_size: float = 11.0
     contact_sep: str = " | "
     contact_color: str = ""  # falls back to muted, then ink
@@ -87,6 +91,10 @@ class Style(BaseModel):
     entry_weight: str = "bold"  # a `### Left | Right` with no ` @ ` split
     role_weight: str = "bold"
     org_weight: str = "regular"
+    # Italic is what separates the organisation from the bullet under it when
+    # both are regular weight in the same colour. Weight cannot do it: the
+    # role has already spent bold, and a second grade of it flattens the pair.
+    org_style: str = "normal"
     org_color: str = ""
     sub_weight: str = "bold"
     sub_color: str = ""

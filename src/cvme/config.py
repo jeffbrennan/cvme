@@ -64,6 +64,29 @@ class GenerateConfig(BaseModel):
     max_bullet_words: int = 32
 
 
+class AccentConfig(BaseModel):
+    """Which accent colour a document takes, and for whom.
+
+    ``default`` applies to every render; ``companies`` maps a company name to
+    the accent used when preparing an application for them, so that matching a
+    posting's branding is a line of config rather than a flag remembered at the
+    right moment. Values are names from ``cvme.style.color.NAMED`` or hex.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    default: str = ""
+    companies: dict[str, str] = Field(default_factory=dict)
+
+    def among(self, company: str) -> str:
+        """The accent for ``company``, matched without regard to case."""
+        wanted = company.strip().casefold()
+        for name, value in self.companies.items():
+            if name.strip().casefold() == wanted:
+                return value
+        return self.default
+
+
 class FitConfig(BaseModel):
     """Vocabulary the fit score is measured over, beyond the packaged lexicon."""
 
@@ -130,6 +153,7 @@ class Config(BaseModel):
     generate: GenerateConfig = Field(default_factory=GenerateConfig)
     search: SearchConfig = Field(default_factory=SearchConfig)
     fit: FitConfig = Field(default_factory=FitConfig)
+    accent: AccentConfig = Field(default_factory=AccentConfig)
     culture: CultureConfig = Field(default_factory=CultureConfig)
     #: Raw [agents.<name>] tables, layered over the packaged defaults at use.
     agents: dict[str, dict[str, Any]] = Field(default_factory=dict)

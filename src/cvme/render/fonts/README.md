@@ -12,20 +12,20 @@ to the nearest weight a family ships, so `**bold**` lands on the 600 face.
 
 | Family | Licence | Why |
 |---|---|---|
-| Carlito | OFL 1.1 | Metric-compatible substitute for Calibri, which is proprietary to Microsoft and cannot be redistributed. The `standard` preset's face. |
-| IBM Plex Sans | OFL 1.1 | Technical humanist sans. `rule`. |
-| Source Sans 3 | OFL 1.1 | Sets more economically than the rest; the density presets use it. `terminal`, `brief`. |
-| Source Serif 4 | OFL 1.1 | Text serif built to hold up at small sizes. `ledger`. |
-| EB Garamond | OFL 1.1 | Book serif. Small x-height, so it is set larger and still occupies less width. `quarto`. |
-| Inter | OFL 1.1 | Interface sans, wide apertures. `slate`. |
+| Source Sans 3 | OFL 1.1 | Sets economically and holds up small. The `sans` preset's face. |
+| Source Serif 4 | OFL 1.1 | Text serif with a large x-height, so it survives 10pt. The `serif` preset's face. |
+| Carlito | OFL 1.1 | Metric-compatible substitute for Calibri, which is proprietary to Microsoft and cannot be redistributed. `standard`, `compact`, `airy`. |
+| IBM Plex Sans | OFL 1.1 | Technical humanist sans. No preset ships it; `--set body_font='IBM Plex Sans'` does. |
+| EB Garamond | OFL 1.1 | Book serif. Small x-height, so it wants a larger size than the others. |
+| Inter | OFL 1.1 | Interface sans, wide apertures. |
 
-Display faces for the letterhead, one weight each:
+Display faces for the letterhead and the section headings, one weight each:
 
 | Family | Licence | Used by |
 |---|---|---|
-| Fira Code | OFL 1.1 | `standard`, `rule`, `slate`, `terminal`, `brief` |
-| IBM Plex Mono | OFL 1.1 | `quarto` |
-| JetBrains Mono | OFL 1.1 | `ledger` |
+| Fira Code | OFL 1.1 | Every preset |
+| IBM Plex Mono | OFL 1.1 | Available; no preset ships it |
+| JetBrains Mono | OFL 1.1 | Available; no preset ships it |
 
 Regenerate with `scripts/fetch_fonts.py`. These are converted from the
 `@fontsource` webfont builds, which are per-unicode-range **subsets** covering

@@ -382,35 +382,64 @@ for how the output reads to a parser.
 ### Styles
 
 A style is a TOML file of resolved numbers in
-[`src/cvme/style/presets`](src/cvme/style/presets). Every preset below is one
-column, standard section names, real bullet glyphs and extractable text -- the
-things a parser reads -- so the choice between them is a choice about the
-human reader only.
+[`src/cvme/style/presets`](src/cvme/style/presets). Every preset is one column,
+standard section names, real bullet glyphs and extractable text -- the things a
+parser reads -- so the choice between them is a choice about the human reader
+only.
 
 | Preset | Body | Name | The idea |
 |---|---|---|---|
-| `standard` | Carlito | Fira Code | The reference layout. No rules, no colour. |
+| `sans` | Source Sans 3 | Fira Code | One accent, monospace section headings, a rule under the letterhead and a hairline under each section. |
+| `serif` | Source Serif 4 | Fira Code | The same design in a text serif, with the leading it needs. |
+| `standard` | Carlito | Fira Code | The reference layout. No rules, no colour, no accent. |
 | `compact` | Carlito | Fira Code | `standard`, tightened, for a page and a half of content. |
 | `airy` | Carlito | Fira Code | `standard`, opened up, on a two-page budget. |
-| `rule` | IBM Plex Sans | Fira Code | Hairline separators, grey dates, one weight of emphasis. |
-| `ledger` | Source Serif 4 | JetBrains Mono | Editorial serif. Reads as a document rather than a form. |
-| `slate` | Inter | Fira Code | One navy accent, used on the name, the headings, the rules and the links. |
-| `quarto` | EB Garamond | IBM Plex Mono | Book serif, wide-tracked headings, no colour. |
-| `terminal` | Source Sans 3 | Fira Code | Section headings in the same monospace as the name, teal accent. |
-| `brief` | Source Sans 3 | Fira Code | Density first: the most bullets that stay comfortable on one page. |
 
-The knobs each one sets are fields on `Style`, and any of them overrides from
-the command line:
+`sans` and `serif` are the same set of decisions in two type families, which is
+why there are two of them and not six: a variation that only changes the font
+is a font argument, not a style.
+
+### Accents
+
+An accent is the one colour a document spends. Setting it moves the name, the
+section headings, the rule under the letterhead and the links together, because
+the presets leave all four unset and falling back to it:
 
 ```bash
-uv run cvme render resume.md --style rule --set accent='#7a1f2b'
-uv run cvme render resume.md --style ledger --set section_rule=0    # no rules
-uv run cvme render resume.md --style slate --set link_underline=true
+uv run cvme render base --style sans --accent navy
+uv run cvme render base --style sans --accent '#8a1538'
 ```
 
-Colour fields fall back rather than default: an empty `accent` is `ink`, and an
-empty `date_color` is `muted` before it is `ink`. A preset therefore reads as
-the short list of decisions it actually makes.
+Named colours are in [`src/cvme/style/color.py`](src/cvme/style/color.py):
+black, graphite, slate, navy, teal, forest, maroon, burgundy, plum, rust. A hex
+value is checked against a 4.5:1 contrast floor and refused with the measured
+ratio if it fails, because a brand colour chosen for a white logo on a coloured
+field is routinely too pale to set type in.
+
+The presets ship near-black, so a document is monochrome until asked otherwise.
+To match a company you are applying to, name them in `cvme.toml` and `cvme prep`
+does the rest:
+
+```toml
+[accent]
+default = "graphite"
+
+[accent.companies]
+"Northwind Analytics" = "#004b87"
+"Ridgeway Health" = "forest"
+```
+
+Every other knob a preset sets is a field on `Style`, and any of them overrides
+from the command line:
+
+```bash
+uv run cvme render resume.md --style sans --set section_rule=0
+uv run cvme render resume.md --style serif --set link_underline=true
+```
+
+Colour fields fall back rather than default: an empty `name_color` is `accent`
+before it is `ink`, and an empty `date_color` is `muted` before it is `ink`. A
+preset therefore reads as the short list of decisions it actually makes.
 
 The authoring grammar is [`src/cvme/md/GRAMMAR.md`](src/cvme/md/GRAMMAR.md).
 `tests/fixtures/resume.md` is a complete worked example.

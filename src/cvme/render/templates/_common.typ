@@ -36,7 +36,7 @@
   set par(justify: false, leading: pt(s.leading), spacing: pt(s.leading))
   show strong: it => text(weight: s.strong_weight, fill: ink(s.strong_color, s.ink), it.body)
   show link: it => {
-    let styled = text(fill: ink(s.link_color, s.ink), it)
+    let styled = text(fill: ink(s.link_color, s.accent, s.ink), it)
     if s.link_underline { underline(styled) } else { styled }
   }
   // The body is wrapped in a box, which is inline and so carries no block
@@ -59,7 +59,7 @@
     columns: (1fr, auto), align: (left + bottom, right + bottom),
     heading(level: 1, outlined: false,
       text(font: s.name_font, weight: s.name_weight, size: pt(s.name_size),
-        tracking: pt(s.name_tracking), fill: ink(s.name_color, s.ink),
+        tracking: pt(s.name_tracking), fill: ink(s.name_color, s.accent, s.ink),
         markup(doc.name))),
     text(size: pt(s.contact_size), fill: ink(s.contact_color, s.muted, s.ink))[
       #doc.contact.map(c => if c.url == none { markup(c.text) } else {

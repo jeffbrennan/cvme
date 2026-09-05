@@ -41,6 +41,7 @@ from cvme.hunt.score import evaluate as evaluate_fit
 from cvme.hunt.store import ApplicationStore
 from cvme.jobs import sources, writer
 from cvme.jobs.models import JobPosting
+from cvme.style import color
 from cvme.style.schema import resolve as resolve_style
 from cvme.verify.corpus import Corpus
 from cvme.verify.corpus import load as load_corpus
@@ -172,6 +173,16 @@ def prep(
     location: Annotated[
         str, typer.Option("--location", help="Override the location.")
     ] = "",
+    accent: Annotated[
+        str,
+        typer.Option(
+            "--accent",
+            help=(
+                "Accent colour for this application, overriding any set for "
+                f"the company. #rrggbb, or {', '.join(sorted(color.NAMED))}."
+            ),
+        ),
+    ] = "",
     note: Annotated[
         str, typer.Option("--note", help="Why this version exists; goes in the index.")
     ] = "",
@@ -253,7 +264,13 @@ def prep(
     for name in wanted:
         document = config.document(name)
         stem = config.hunt_stem(name)
-        style = resolve_style(document.style, document.overrides)
+        overrides = dict(document.overrides)
+        # The company is known here, which is the whole reason to hang an
+        # accent off it: an application to a company with one configured comes
+        # out in their colour without anyone remembering a flag.
+        if chosen := (accent or config.accent.among(posting.company)):
+            overrides["accent"] = color.parse(chosen)
+        style = resolve_style(document.style, overrides)
         bundle = build(
             document=name,
             template=document.template,

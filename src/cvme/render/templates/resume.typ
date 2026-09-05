@@ -63,7 +63,8 @@
         text(weight: s.role_weight)[#markup(e.head.role)]
         // On one line: a newline inside `[...]` renders as a space, which
         // would double the separator's own spacing.
-        text(weight: s.org_weight, fill: ink(s.org_color, s.ink))[#s.role_sep#markup(e.head.org)]
+        text(weight: s.org_weight, style: s.org_style,
+          fill: ink(s.org_color, s.ink))[#s.role_sep#markup(e.head.org)]
       } else {
         text(weight: s.entry_weight)[#markup(e.head.left)]
       },

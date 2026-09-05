@@ -21,17 +21,7 @@ from tests.geometry import measure
 
 #: Every preset a resume renders with. `letter` is a cover-letter style and
 #: refuses to autofit, so it is not one of them.
-RESUME_PRESETS = (
-    "standard",
-    "compact",
-    "airy",
-    "rule",
-    "ledger",
-    "slate",
-    "quarto",
-    "terminal",
-    "brief",
-)
+RESUME_PRESETS = ("standard", "compact", "airy", "sans", "serif")
 
 #: A drawn stroke at least this wide spans the text block, which separates a
 #: rule from a link underline without depending on either one's exact length.
