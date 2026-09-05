@@ -113,6 +113,19 @@ class Style(BaseModel):
     marker_baseline: float = 0.0
     marker_indent: float = 18.0
     body_indent: float = 10.9
+    # Space between the end of a body line and the column the dates occupy.
+    # Body text is held clear of that column so the page has a right edge to
+    # follow, instead of bullets running the full width under the dates.
+    # Negative turns the inset off, which is the default: holding the body
+    # clear costs the width of the date column, and whether a page can afford
+    # that depends on how much is on it. Set it per document to switch on.
+    date_gutter: float = -1.0
+    # Even out the lines of a bullet that wraps, instead of letting the first
+    # line fill and the rest fall short. Off by default: it reaches the page by
+    # giving each item a width, and an item with a width is a block, which
+    # shifts the line rhythm slightly where an item ends. A document setting
+    # date_gutter gets this regardless -- the inset is the same mechanism.
+    balance_bullets: bool = False
 
     # letters
     letter_gap: float = 24.0  # letterhead to the date line

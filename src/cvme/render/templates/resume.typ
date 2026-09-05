@@ -36,10 +36,60 @@
     fill: ink(s.date_color, s.muted, s.ink))[#markup(value)]
 }
 
+/// Every date on the page, so the width of the column they occupy can be
+/// measured rather than guessed.
+/// Parenthesised because a `#let` in markup mode ends at the newline once its
+/// expression is complete: without these, `doc.sections` is the whole binding
+/// and the chained calls below it are read as markup.
+#let date_values = (
+  doc.sections
+    .map(sec => sec.entries
+      .map(e => (e.head.right, if e.sub != none { e.sub.right } else { "" }))
+      .flatten())
+    .flatten()
+    .filter(v => v != "")
+)
+
 #letterhead(doc, s)
 #v(pt(s.header_gap), weak: false)
 
-#for (i, sec) in doc.sections.enumerate() {
+// Dates are set hard against the right margin, and body text wraps at that
+// same margin, so a bullet's first line runs the full width of the page and
+// passes under the column the dates sit in. Holding the body clear of that
+// column is what gives the page a right edge a reader can follow. The inset is
+// measured from the widest date actually on the page, so it tracks the date
+// size the fit ladder settles on rather than a number that goes stale.
+#context {
+  let date_width = calc.max(0pt, ..date_values.map(v => measure(dates(v)).width))
+  let inset = if date_width > 0pt and s.date_gutter >= 0 {
+    date_width + pt(s.date_gutter)
+  } else {
+    0pt
+  }
+  let text_width = page.width - 2 * pt(s.margin_x)
+  let body_width = text_width - inset - pt(s.marker_indent) - pt(s.body_indent)
+  // The inset is applied per block, by narrowing each one, rather than by
+  // wrapping the run: a wrapper is block-level and would add spacing the run
+  // does not have. With the inset off, widths are left unset and the blocks
+  // reach the page exactly as they did before this existed.
+  // Widths are always passed, whether or not there is an inset to apply.
+  // Narrowing a block is how the inset is achieved, but it is also what
+  // balances a wrapped bullet, and the second is worth having on a page whose
+  // dates are not being cleared: with no width, a two-line bullet fills its
+  // first line and drops a stub on the second.
+  // Narrowing a block is how the inset is applied and also how a wrapped
+  // bullet is balanced, so an inset implies balancing. Without one, balancing
+  // is opt-in: it is free in height but not in line rhythm, because an item
+  // given a width is a block.
+  let narrow = inset > 0pt or s.balance_bullets
+  let body = (items, ..rest) => blocks(
+    items, ..rest,
+    text_width: if narrow { text_width - inset } else { none },
+    bullet_width: if narrow { body_width } else { none },
+    nested_indent: pt(s.marker_indent) + pt(s.body_indent),
+  )
+
+  for (i, sec) in doc.sections.enumerate() {
   if i > 0 { v(pt(s.section_gap_before), weak: false) }
   if sec.title != "" {
     // A real heading, so the PDF carries an H2 tag rather than anonymous bold
@@ -54,7 +104,7 @@
     v(pt(s.section_gap_after), weak: false)
   }
 
-  blocks(sec.blocks)
+  body(sec.blocks)
 
   for (j, e) in sec.entries.enumerate() {
     if j > 0 or sec.blocks.len() > 0 { v(pt(s.entry_gap_before), weak: false) }
@@ -76,6 +126,7 @@
         dates(e.sub.right),
       ))
     }
-    blocks(e.blocks)
+    body(e.blocks)
+  }
   }
 }
