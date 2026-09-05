@@ -45,6 +45,11 @@ class Style(BaseModel):
     body_font: str = "Carlito"
     body_size: float = 11.0
     leading: float = 6.4
+    # How small the fit ladder may scale body text before it gives up. The
+    # default is the floor from when it was fixed, so a document that says
+    # nothing tightens as it always did; raise it to protect reading comfort
+    # and make the ladder spend margins or content instead.
+    body_size_min: float = 9.0
 
     # Inline `**bold**`. A resume carries a lot of it -- every skill label,
     # every role -- and turning it down in one place is how a page stops

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from itertools import pairwise
 from pathlib import Path
 
 import pdfplumber
@@ -186,7 +187,7 @@ def test_bullet_gap_opens_the_list_without_opening_the_lines(
         answer.
         """
         tops = sorted(r[3] for r in _bullets(pdf))
-        seen = Counter(round(b - a, 1) for a, b in zip(tops, tops[1:], strict=False))
+        seen = Counter(round(b - a, 1) for a, b in pairwise(tops))
         return [gap for gap, _ in seen.most_common(2)]
 
     within = common_gaps(tight)[0]
