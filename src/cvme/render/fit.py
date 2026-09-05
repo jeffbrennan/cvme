@@ -92,7 +92,7 @@ def ladder(style: Style) -> list[Step]:
         Step("section gap above", _shrink("section_gap_before", 0.7, floor=3.5)),
         Step("section gap below", _shrink("section_gap_after", 0.8, floor=7.0)),
         Step("header gap", _shrink("header_gap", 1.0, floor=4.0)),
-        Step("type size", _scale_type(0.98, floor=9.0)),
+        Step("type size", _scale_type(0.98, floor=style.body_size_min)),
         Step(
             "vertical margins",
             _shrink("margin_y", 3.6, floor=style.margin_y_min),
