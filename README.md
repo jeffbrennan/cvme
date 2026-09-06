@@ -40,7 +40,7 @@ Under construction, milestone by milestone. See
 | M8 — `cvme ats`: check the rendered PDF the way a parser reads it | done |
 | M9 — `cvme prep` and `cvme apps`: one directory per posting, tracked | done |
 | M10 — pay and work-life read from the posting, sortable in `cvme apps` | done |
-| M11 — `cvme linkedin`: one-way sync from the source documents | done; applied by paste, since LinkedIn's write API is partner-only |
+| M11 — `cvme linkedin`: one-way sync, audited against the data export | done; applied by paste, since LinkedIn's write API is partner-only |
 
 ## Design
 
@@ -567,6 +567,22 @@ cvme linkedin sync       # write out/linkedin-changeset.md
 cvme linkedin record     # mark the current documents as applied
 cvme linkedin status
 ```
+
+Because the paste is manual, `cvme linkedin check` audits the result against
+what LinkedIn actually holds and exits non-zero on drift, so it works as a CI
+or cron check. The profile is read from the data export any member can
+download -- Settings & Privacy > Data Privacy > Get a copy of your data --
+since the API's read scopes are as partner-gated as its write ones.
+
+```bash
+cvme linkedin check ~/Downloads/Basic_LinkedInDataExport.zip
+cvme linkedin check ./export --record   # record what LinkedIn says, not what you intended
+```
+
+Findings are `missing` (in your documents, not on LinkedIn), `stale` (on
+LinkedIn, out of date) or `extra` (on LinkedIn, not in your documents). The
+first two fail; `extra` only fails under `--strict`, because a resume drops an
+old job for space and the profile keeping it is not drift.
 
 The changeset is a file you paste from: every changed field, in the order
 LinkedIn's editor presents them, with the new text in a fenced block and where

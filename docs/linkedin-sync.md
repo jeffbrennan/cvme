@@ -8,6 +8,10 @@ profile a projection of the document instead.
 The sync is one-way and the last step is manual: cvme writes a changeset and
 you paste it in. That is not a shortcut, it is the ceiling — see below.
 
+Because the paste is manual, `cvme linkedin check` audits the result against
+what LinkedIn actually holds, and fails on drift. That is the part that keeps
+the manual step honest.
+
 ## Why there is no API push
 
 LinkedIn's **Profile Edit API** is real and documented. It creates, updates and
@@ -47,29 +51,93 @@ $ cvme linkedin diff          # after recording, and one edited bullet
 update position 'Staff Data Engineer @ Northwind Analytics'
 ```
 
+## Checking against the live profile
+
+`record` on its own is a promise: you telling cvme the paste happened. `check`
+is evidence.
+
+There is no API to read the profile back — the Profile API's read scopes are
+as partner-gated as its write ones, and scraping the page is blocked and
+against the terms. What every member can get, without permission from anyone,
+is their own data:
+
+> Settings & Privacy → Data Privacy → **Get a copy of your data** →
+> Profile, Positions, Education, Skills
+
+The basic categories arrive by email within minutes as a ZIP of CSVs.
+
+```bash
+cvme linkedin check ~/Downloads/Basic_LinkedInDataExport.zip
+cvme linkedin check ./unpacked-export --record
+```
+
+It exits non-zero on drift, so it works as a CI or cron check. Findings come
+in three kinds:
+
+| Finding | Means | Fails |
+|---|---|---|
+| `missing` | in your documents, not on LinkedIn | yes |
+| `stale` | on LinkedIn, but not what your documents say | yes |
+| `extra` | on LinkedIn, not in your documents | only with `--strict` |
+
+`extra` does not fail by default because a one-way sync promises "everything
+`base.md` says is on the profile", not "the profile says nothing else". A
+resume drops an old job for space and the profile keeping it is correct;
+endorsed skills you would not claim in print are the same story. `--strict` is
+for anyone who wants the profile to be exactly the document.
+
+`--record` writes the *exported* profile as the state, so whatever you have
+not applied yet stays outstanding and the next `sync` is exactly the remainder.
+Entries cvme does not manage are left out of that record, so a job you meant to
+keep never becomes a standing instruction to delete it — unless you pass
+`--strict`, which means you do want it gone.
+
+```
+$ cvme linkedin check export
+stale   headline
+missing position 'Data Engineer @ GreyHarbor Health'
+extra   position 'Barista @ Harbor Coffee'
+missing skills: dagster, polars, pytest
+2 missing, 1 stale, 1 extra
+```
+
+The archive's columns are read by name through an alias table, not by
+position, because LinkedIn publishes no schema for it and has renamed these
+before. A file whose columns cannot be understood is an error that names the
+headers actually found.
+
 ## Commands
 
 ```bash
 cvme linkedin diff       # what has changed since the last recorded sync
 cvme linkedin sync       # write out/linkedin-changeset.md
+cvme linkedin check E    # audit against a data export; non-zero on drift
 cvme linkedin record     # mark the current documents as applied
 cvme linkedin status     # sources, and what is outstanding
 cvme linkedin reset      # forget the state; offer the whole profile again
 ```
 
-`sync --record` does both in one step, for when you paste as you go.
+`sync --record` records as it writes, for when you paste as you go. Prefer
+`check --record` when you have an export: it records what LinkedIn says rather
+than what you intended.
 
 ## Design
 
 ```
 base.md ──parse──┐
                  ├─merge──▶ document IR ──project──▶ Profile ──diff──▶ changeset.md
-linkedin.md ─────┘                                      ▲
-   (optional)                                           │
-                                             last recorded state
+linkedin.md ─────┘                                      ▲    └─diff──▶ audit
+   (optional)                                           │           ▲
+                                             last recorded state    │
+                                      LinkedIn data export ─read────┘
 ```
 
-Four decisions are worth stating.
+The audit is the same comparison read the other way round. Diffing the
+projected profile against the live one turns `add` into "missing", `update`
+into "stale" and `remove` into "extra", so there is one comparison engine
+rather than two that can disagree.
+
+Five decisions are worth stating.
 
 **The overlay is a patch, not a second document.** `linkedin.md` is written in
 the same grammar and holds only what should read differently: a longer About,
@@ -87,9 +155,10 @@ a one-way sync is "what have I written since I last pushed". The state lives in
 `.cvme/linkedin/state.json` and is written only when you say a sync was
 applied, so an abandoned paste leaves the changes outstanding.
 
-cvme cannot see your profile, so it does not claim to. `cvme linkedin record`
-is a separate step on purpose: recording a sync that never happened is the one
-lie that would make every later diff wrong.
+Nothing cvme runs can see your profile on its own, so `record` does not claim
+to: it is a separate step because recording a sync that never happened is the
+one lie that would make every later diff wrong. `check` is how that claim gets
+evidence behind it, which is why `check --record` is the better habit.
 
 **Over-long fields are refused, not truncated.** LinkedIn's composer caps the
 headline at 220 characters, About at 2,600 and a role description at 2,000. A
@@ -98,6 +167,12 @@ cvme names every over-long field and stops before writing anything.
 
 **Sections it cannot map are reported.** There is no LinkedIn field for a
 `Projects` section, so cvme says so rather than dropping it silently.
+
+**Text is normalised on the way into the model, not at comparison time.** A
+description that has been through LinkedIn's storage and back comes home with
+different trailing whitespace, and a trailing space is not a claim that
+changed. Normalising at the boundary means the sync diff and the audit are
+comparing the same thing.
 
 ## The mapping
 
@@ -109,6 +184,10 @@ cvme names every over-long field and stops before writing anything.
 | `## Education` entries | Education | |
 | `## Skills` bullets, split per term | Skills | 50 skills, 100 each |
 | `## Gaps` | nothing — it is addressed to you | |
+
+A lone date on a degree line is a graduation, so it becomes the *end* date. On
+a position a lone date means you started then and are there still. Reading the
+degree the same way would put "2020 – Present" on a master's you finished.
 
 Skills read the way a resume writes them. `Python (advanced)` is the skill
 `Python`: the bracket qualifies it. `Orchestration (airflow, dagster)` is

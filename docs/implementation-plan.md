@@ -926,3 +926,48 @@ dropped, because "a third of your document was ignored" should not be something
 you discover from the profile. `## Gaps` is the exception and is dropped at the
 projection boundary, since a public profile is the worst possible destination
 for a list of your weaknesses.
+
+### 16.5 Auditing against the live profile
+
+`record` is a promise: the author telling cvme that the paste happened. A
+promise is the weakest link in the design, because every later diff is computed
+against it, so `cvme linkedin check` exists to put evidence behind it.
+
+The profile is read from the member's own data export -- Settings & Privacy >
+Data Privacy > Get a copy of your data -- which is first-party, needs
+permission from nobody, and is the only way to read a profile back: the Profile
+API's read scopes are as partner-gated as its write ones, and scraping the page
+is both blocked and against the terms.
+
+The comparison is `diff` read the other way round. Diffing the projected
+profile against the live one turns `add` into "missing", `update` into "stale"
+and `remove` into "extra", so there is one comparison engine rather than two
+that can disagree about what "the same position" means.
+
+Only `missing` and `stale` fail by default. The contract a one-way sync makes
+is "everything base.md says is on the profile", not "the profile says nothing
+else": a resume drops an old job for space, and the profile keeping it is
+correct rather than drift. `--strict` is for wanting the profile to be exactly
+the document.
+
+`check --record` records the exported profile, not the projected one, so what
+has not been applied stays outstanding. It records only the entries cvme
+manages, because importing an extra verbatim would make every later changeset
+say to delete a job the author meant to keep, and a standing instruction to
+undo something deliberate is worse than not tracking it.
+
+Two details cost more thought than they look. The archive's columns are read by
+name through an alias table and not by position, because LinkedIn publishes no
+schema for it and has renamed these before; a file that cannot be understood is
+an error naming the headers actually found, so a rename is a five-second
+diagnosis rather than a profile that silently audits as empty. And profile text
+is normalised on the way into the model rather than at comparison time, because
+a description that has been through LinkedIn's storage and back returns with
+different trailing whitespace, and a trailing space is not a claim that
+changed.
+
+Building the audit paid for itself immediately: the first realistic export
+fixture showed the projection reading a graduation date as the *start* of a
+degree, which would have put "2020 - Present" on a finished master's. A lone
+date is a start on a position and an end on an education, and nothing but a
+round trip through real data was going to surface that.

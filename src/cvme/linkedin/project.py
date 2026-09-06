@@ -23,8 +23,15 @@ from __future__ import annotations
 
 import re
 
-from cvme.linkedin.dates import parse_range
-from cvme.linkedin.model import Education, Position, Profile, Skill, flatten
+from cvme.linkedin.dates import is_open_ended, parse_range
+from cvme.linkedin.model import (
+    Education,
+    MonthYear,
+    Position,
+    Profile,
+    Skill,
+    flatten,
+)
 from cvme.models import (
     Block,
     Bullet,
@@ -152,7 +159,7 @@ def _education(entry: Entry) -> Education:
     if entry.sub is not None:
         degree, field = _degree(flatten(entry.sub.left))
         dates = flatten(entry.sub.right) or dates
-    start, end = parse_range(dates)
+    start, end = _education_dates(dates)
     return Education(
         school=flatten(entry.head.left),
         degree=degree,
@@ -161,6 +168,20 @@ def _education(entry: Entry) -> Education:
         start=start,
         end=end,
     )
+
+
+def _education_dates(text: str) -> tuple[MonthYear | None, MonthYear | None]:
+    """Read a degree line's dates, where a lone date is a graduation.
+
+    The opposite of a position, and the reason this is not ``parse_range``.
+    One date against a job means you started then and are there still; one
+    date against a degree is when it was awarded, so it is the end. Reading it
+    as a start would put "2020 - present" on a master's you finished.
+    """
+    start, end = parse_range(text)
+    if end is None and start is not None and not is_open_ended(text):
+        return None, start
+    return start, end
 
 
 def _degree(text: str) -> tuple[str, str]:

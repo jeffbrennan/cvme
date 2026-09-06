@@ -19,9 +19,9 @@ sentence loses its verb somewhere no one is looking.
 from __future__ import annotations
 
 import re
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, BeforeValidator, Field
 
 from cvme.md.inline import to_plain
 
@@ -56,6 +56,29 @@ _MONTHS = (
 
 _LINK_OPEN = re.compile(r'#link\("([^"]*)"\)\[')
 
+_BLANK_RUN = re.compile(r"\n{3,}")
+
+
+def _one_line(value: object) -> object:
+    """Collapse a field LinkedIn stores on one line."""
+    return " ".join(value.split()) if isinstance(value, str) else value
+
+
+def _block(value: object) -> object:
+    """Tidy a field LinkedIn stores as several lines."""
+    if not isinstance(value, str):
+        return value
+    lines = [line.rstrip() for line in value.replace("\r\n", "\n").split("\n")]
+    return _BLANK_RUN.sub("\n\n", "\n".join(lines)).strip()
+
+
+#: A profile field is normalised on the way in, not on the way out, so that
+#: everything downstream compares like with like. It matters most for the
+#: audit: text read back from a LinkedIn export has been through someone
+#: else's storage, and a trailing space is not a claim that changed.
+Line = Annotated[str, BeforeValidator(_one_line)]
+Text = Annotated[str, BeforeValidator(_block)]
+
 
 class MonthYear(BaseModel):
     """A LinkedIn date. The API takes a month and a year and nothing finer."""
@@ -74,10 +97,10 @@ class MonthYear(BaseModel):
 class Position(BaseModel):
     """One role. LinkedIn calls these positions; the resume calls them jobs."""
 
-    title: str
-    company: str
-    description: str = ""
-    location: str = ""
+    title: Line
+    company: Line
+    description: Text = ""
+    location: Line = ""
     start: MonthYear | None = None
     end: MonthYear | None = None
 
@@ -94,10 +117,10 @@ class Position(BaseModel):
 
 
 class Education(BaseModel):
-    school: str
-    degree: str = ""
-    field_of_study: str = ""
-    description: str = ""
+    school: Line
+    degree: Line = ""
+    field_of_study: Line = ""
+    description: Text = ""
     start: MonthYear | None = None
     end: MonthYear | None = None
 
@@ -109,7 +132,7 @@ class Education(BaseModel):
 class Skill(BaseModel):
     model_config = {"frozen": True}
 
-    name: str
+    name: Line
 
     @property
     def key(self) -> str:
@@ -134,8 +157,8 @@ class Violation(BaseModel):
 class Profile(BaseModel):
     """Everything the sync knows how to state about a member."""
 
-    headline: str = ""
-    summary: str = ""
+    headline: Line = ""
+    summary: Text = ""
     positions: list[Position] = Field(default_factory=list)
     educations: list[Education] = Field(default_factory=list)
     skills: list[Skill] = Field(default_factory=list)

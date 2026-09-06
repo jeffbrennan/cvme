@@ -1,9 +1,10 @@
 """``cvme linkedin`` -- keep a profile in step with the source documents.
 
-There is one transport and it is a file you paste from. LinkedIn's Profile
-Edit API, the only way to write a profile section programmatically, is
-restricted to partner-approved developers, so an automated push is not
-something this tool can offer. See ``cvme.linkedin.review``.
+Writing is a file you paste from: LinkedIn's Profile Edit API, the only way to
+change a profile section programmatically, is restricted to partner-approved
+developers. Reading back is the data export, which any member can download and
+which is what ``check`` audits against. See ``cvme.linkedin.review`` and
+``cvme.linkedin.export``.
 """
 
 from __future__ import annotations
@@ -16,7 +17,8 @@ import typer
 from cvme.cli.errors import err_console, handled
 from cvme.config import Config, find_config, load_config
 from cvme.errors import ConfigError
-from cvme.linkedin import review, sync
+from cvme.linkedin import audit, review, sync
+from cvme.linkedin import export as export_reader
 from cvme.linkedin import state as sync_state
 from cvme.linkedin.sync import Plan
 
@@ -116,6 +118,59 @@ def sync_(
     else:
         typer.echo("Apply it, then run `cvme linkedin record`.")
     _warn(plan)
+
+
+@app.command()
+@handled
+def check(
+    export: Annotated[
+        Path,
+        typer.Argument(
+            help="The LinkedIn data export ZIP, or a directory of its CSVs."
+        ),
+    ],
+    strict: Annotated[
+        bool,
+        typer.Option(
+            "--strict", help="Also fail on entries LinkedIn has and you do not."
+        ),
+    ] = False,
+    record_now: Annotated[
+        bool,
+        typer.Option("--record", help="Record the exported profile as the live state."),
+    ] = False,
+    config_path: Annotated[
+        Path | None, typer.Option("--config", help="Path to cvme.toml.")
+    ] = None,
+) -> None:
+    """Check the live profile against the source documents, and fail on drift.
+
+    Get the export from Settings & Privacy > Data Privacy > Get a copy of your
+    data. It is the only first-party way to read the profile back: the read
+    scopes are as partner-gated as the write ones.
+    """
+    config = _config(config_path)
+    plan = sync.build(config)
+    result = audit.audit(plan.profile, export_reader.read(export))
+
+    for line in result.lines():
+        typer.echo(line)
+    typer.echo(result.summary())
+
+    if record_now:
+        # What LinkedIn holds, not what cvme projected: recording the export
+        # leaves whatever has not been applied still outstanding, which is the
+        # point of grounding the state in evidence rather than in a promise.
+        keep = audit.recordable(plan.profile, result.live, strict=strict)
+        path = sync_state.save(config.root, keep)
+        typer.echo(f"recorded the exported profile to {path}")
+
+    _warn(plan)
+    if result.failed(strict=strict):
+        raise audit.DriftError(
+            f"the profile does not match your documents ({result.summary()}).\n"
+            "  Run `cvme linkedin sync` for the changes to apply."
+        )
 
 
 @app.command()
