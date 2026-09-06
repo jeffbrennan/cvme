@@ -1,8 +1,7 @@
 """The tier ladder: how a URL becomes a posting.
 
 Ordered by how good the result is and how likely it is to keep working, not by
-convenience. See docs/job-sources.md for the research behind the order, in
-particular why there is no anonymous LinkedIn HTTP tier.
+convenience. See docs/job-sources.md for the research and live capture results.
 
 Public LinkedIn and Indeed HTML is parsed when it is available. A browser
 driving the user's logged-in profile is still needed when either site returns
@@ -23,6 +22,7 @@ from cvme.jobs import ats, jsonld, sitehtml
 from cvme.jobs.cache import Cache
 from cvme.jobs.htmltext import main_text
 from cvme.jobs.models import JobPosting
+from cvme.jobs.salary import from_description
 
 USER_AGENT = "cvme/0.1 (+https://github.com/jeffbrennan/cvme) single-posting fetch"
 #: A personal tool fetching one page a person is already looking at. The delay
@@ -99,19 +99,31 @@ class Fetcher:
 
 
 def from_html(html: str, url: str) -> JobPosting:
-    """Parse a saved page: JSON-LD if it is there, densest text block if not."""
+    """Parse a saved page with the same structured tiers as a live response."""
     if posting := jsonld.extract(html, url, source=_site(url)):
         posting.tier = "manual:jsonld"
         return posting
+    if posting := sitehtml.extract(html, url, _site(url)):
+        posting.tier = "manual:site:html"
+        return posting
+    description = main_text(html)
     return JobPosting(
-        url=url, description=main_text(html), source=_site(url), tier="manual:html"
+        url=url,
+        description=description,
+        salary=from_description(description),
+        source=_site(url),
+        tier="manual:html",
     )
 
 
 def from_text(text: str, url: str) -> JobPosting:
     """Take a pasted description at face value."""
     return JobPosting(
-        url=url, description=text.strip(), source=_site(url), tier="manual:text"
+        url=url,
+        description=text.strip(),
+        salary=from_description(text),
+        source=_site(url),
+        tier="manual:text",
     )
 
 

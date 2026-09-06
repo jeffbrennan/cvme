@@ -34,7 +34,7 @@ Under construction, milestone by milestone. See
 | M2 — page autofit, machine-readable output, cover letters | done |
 | M2b — project config, `cvme init` | done |
 | M3 — fact corpus and the `cvme verify` guardrails | done |
-| M4 — job capture: ATS APIs, JSON-LD, manual paths | partial (offline tiers) |
+| M4 — job capture: ATS APIs, JSON-LD, manual paths | public HTTP + manual implemented; LinkedIn live-tested; browser pending |
 | M5 — agent-driven tailoring | done |
 | M7 — `cvme convert`: an existing PDF resume back into markdown | done |
 | M8 — `cvme ats`: check the rendered PDF the way a parser reads it | done |
@@ -101,6 +101,21 @@ uv run cvme job fetch https://www.linkedin.com/jobs/view/123
 uv run cvme job add --html saved.html --url https://www.linkedin.com/jobs/view/123
 pbpaste | uv run cvme job add --stdin --url https://x.example/1 --title T --company C
 ```
+
+Capture tries ATS APIs for supported ATS URLs, then JSON-LD and site-specific
+HTML for public pages. Saved HTML uses the same JSON-LD and site selectors
+before falling back to page text. Entity-escaped JSON-LD descriptions are
+converted to Markdown. If JSON-LD has no salary, capture reads the range and
+any stated pay period from the description into `salary`; an explicit
+structured salary takes precedence.
+
+Both LinkedIn postings [4453268982](https://www.linkedin.com/jobs/view/4453268982/)
+and [4457172708](https://www.linkedin.com/jobs/view/4457172708/) were fetched
+successfully through public HTTP on 2026-09-05. Recorded job-bearing HTML
+fragments cover their descriptions, metadata, salaries, and cache reuse in
+offline tests. Sites may still require login or challenge completion;
+automatic browser capture remains pending, so use saved HTML or pasted text
+when public HTTP cannot retrieve the posting.
 
 Search LinkedIn and Indeed in bulk and digest only postings not seen before:
 

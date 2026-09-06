@@ -1,5 +1,26 @@
 # Getting a job description: what already exists
 
+## Live verification, 2026-09-05
+
+The earlier research below describes the constraints of the original build
+environment. Public HTTP now works for the two LinkedIn URLs tested with
+`cvme job fetch --no-cache` and the tool's identifying user-agent:
+
+| Posting | Extractor | Captured salary |
+|---|---|---|
+| [Mount Sinai, Data Engineer III](https://www.linkedin.com/jobs/view/4453268982/) | JSON-LD, with an entity-escaped HTML description | $109000 - $163695 per year |
+| [MTA, Specialist Data Engineer](https://www.linkedin.com/jobs/view/4457172708/) | Public HTML selectors; no JobPosting JSON-LD | $114,070 - $134,641 |
+
+These results supersede the inference below that anonymous LinkedIn capture
+is probably dead; they do not establish availability for every posting.
+Recorded fixtures retain job-bearing fragments and omit unrelated page chrome
+and tracking. The tests verify live-response parsing, saved-page parsing,
+salary extraction, metadata, Markdown round trips, and cache reuse.
+Browser automation is still pending. ATS and Indeed paths retain their
+existing offline coverage; this verification only exercised LinkedIn live.
+
+## Original research
+
 Research done before writing any scraper, to avoid rebuilding what is already
 solved and to avoid rebuilding something that has already stopped working.
 

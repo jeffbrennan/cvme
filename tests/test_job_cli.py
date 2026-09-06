@@ -111,3 +111,27 @@ def test_jobs_land_in_the_configured_directory(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0, result.output
     assert list((tmp_path / "jobs").glob("*.md"))
+
+
+def test_saved_linkedin_html_preserves_metadata(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "job",
+            "add",
+            "--html",
+            str(JOBS / "linkedin_4457172708.html"),
+            "--url",
+            "https://www.linkedin.com/jobs/view/4457172708/",
+            "--out",
+            str(tmp_path),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    from cvme.jobs.writer import read
+
+    posting = read(next(tmp_path.glob("*.md")))
+    assert posting.title == "Specialist Data Engineer"
+    assert posting.company == "Metropolitan Transportation Authority"
+    assert posting.tier == "manual:site:html"
+    assert "$114,070 - $134,641" in posting.description

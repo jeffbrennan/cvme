@@ -1,9 +1,8 @@
 """Capturing job postings.
 
-Everything here runs against recorded fixtures and a mock transport. The live
-tiers cannot be exercised from an environment with no route to the sites, and
-the parsers are pure functions over saved input anyway, which is the point of
-keeping the fetch and the parse apart.
+Everything here runs against recorded fixtures and a mock transport, including
+job-bearing fragments from two LinkedIn postings verified live on 2026-09-05.
+Keeping fetch and parse apart makes those regressions reproducible offline.
 """
 
 from __future__ import annotations
@@ -324,3 +323,132 @@ def test_write_lands_in_the_jobs_directory(tmp_path: Path) -> None:
     path = write(posting, tmp_path / "jobs")
     assert path.parent.name == "jobs"
     assert path.read_text().startswith("---\n")
+
+
+@pytest.mark.parametrize(
+    ("job_id", "title", "company", "tier", "employment", "phrase"),
+    [
+        (
+            "4453268982",
+            "Data Engineer III - Digital and Technology Partners - Hybrid/Remote",
+            "Mount Sinai Health System",
+            "jsonld",
+            "FULL_TIME",
+            "150 E 42nd Street",
+        ),
+        (
+            "4457172708",
+            "Specialist Data Engineer",
+            "Metropolitan Transportation Authority",
+            "site:html",
+            "Other",
+            "$114,070 - $134,641",
+        ),
+    ],
+)
+def test_recorded_linkedin_postings(
+    tmp_path: Path,
+    job_id: str,
+    title: str,
+    company: str,
+    tier: str,
+    employment: str,
+    phrase: str,
+) -> None:
+    url = f"https://www.linkedin.com/jobs/view/{job_id}/"
+    html = fixture(f"linkedin_{job_id}.html")
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        return httpx.Response(200, text=html)
+
+    fetcher = _fetcher(tmp_path, handler)
+    posting = fetcher.fetch(url)
+    saved = sources.from_html(html, url)
+    assert posting.tier == tier
+    assert saved.tier == f"manual:{tier}"
+    for captured in (posting, saved, fetcher.fetch(url)):
+        assert captured.title == title
+        assert captured.company == company
+        assert captured.employment_type == employment
+        assert captured.source == "linkedin"
+        assert captured.location.startswith("New York, NY")
+        assert captured.apply_url == url
+        assert captured.missing() == []
+        assert phrase in captured.description
+        assert len(captured.description) > 5000
+        assert "&lt;" not in captured.description
+        assert "<br>" not in captured.description
+        assert "Similar jobs and sign in" not in captured.description
+    assert calls == [url]
+    from cvme.jobs.writer import read
+
+    assert read(write(posting, tmp_path)).description == posting.description
+
+
+def test_title_only_jsonld_does_not_hide_the_html_description(tmp_path: Path) -> None:
+    html = (
+        '<script type="application/ld+json">'
+        + json.dumps({"@type": "JobPosting", "title": "Incomplete metadata"})
+        + "</script>"
+        + fixture("linkedin_page.html")
+    )
+    fetcher = _fetcher(tmp_path, lambda _: httpx.Response(200, text=html))
+    posting = fetcher.fetch("https://www.linkedin.com/jobs/view/123")
+    assert posting.tier == "site:html"
+    assert "Own developer infrastructure" in posting.description
+
+
+def test_jsonld_preserves_escaped_examples_inside_real_html() -> None:
+    posting = jsonld.from_dict(
+        {"description": "<p>Work with &lt;service&gt; and R&amp;D.</p>"}, "u"
+    )
+    assert "<service>" in posting.description
+    assert "R&D" in posting.description
+
+
+@pytest.mark.parametrize(
+    ("job_id", "salary", "bounds"),
+    [
+        ("4453268982", "$109000 - $163695 per year", (109000, 163695)),
+        ("4457172708", "$114,070 - $134,641", (114070, 134641)),
+    ],
+)
+def test_linkedin_salary_survives_capture_and_roundtrip(
+    tmp_path: Path,
+    job_id: str,
+    salary: str,
+    bounds: tuple[int, int],
+) -> None:
+    from cvme.hunt.pay import read as read_pay
+    from cvme.jobs.writer import read
+
+    url = f"https://www.linkedin.com/jobs/view/{job_id}/"
+    html = fixture(f"linkedin_{job_id}.html")
+    fetcher = _fetcher(tmp_path, lambda _: httpx.Response(200, text=html))
+    for posting in (fetcher.fetch(url), sources.from_html(html, url)):
+        assert posting.salary == salary
+        stored = read(write(posting, tmp_path))
+        pay = read_pay(stored.salary)
+        assert (pay.low, pay.high) == bounds
+        assert stored.salary == salary
+
+
+def test_structured_salary_takes_precedence_over_description() -> None:
+    posting = jsonld.from_dict(
+        {
+            "baseSalary": {
+                "currency": "USD",
+                "value": {"minValue": 180000, "maxValue": 220000, "unitText": "YEAR"},
+            },
+            "description": "Other roles pay $90,000 per year.",
+        },
+        "u",
+    )
+    assert posting.salary == "USD 180000-220000 per year"
+
+
+def test_pasted_salary_preserves_hourly_period() -> None:
+    assert sources.from_text("Salary: $72/hr", "u").salary == "$72 per hour"
+    assert sources.from_text("We serve 10,000 patients per year", "u").salary == ""

@@ -13,6 +13,7 @@ from selectolax.parser import HTMLParser, Node
 
 from cvme.jobs.htmltext import to_markdown
 from cvme.jobs.models import JobPosting
+from cvme.jobs.salary import from_description
 
 
 @dataclass(frozen=True)
@@ -88,11 +89,27 @@ def extract(html: str, url: str, site: str) -> JobPosting | None:
     if not markdown.strip():
         return None
 
+    employment_type = ""
+    if site == "linkedin":
+        for item in tree.css(".description__job-criteria-item"):
+            label = item.css_first(".description__job-criteria-subheader")
+            value = item.css_first(".description__job-criteria-text")
+            if (
+                label
+                and value
+                and label.text(strip=True).casefold() == "employment type"
+            ):
+                employment_type = value.text(strip=True)
+                break
+
     return JobPosting(
         url=url,
         title=_text(tree, selectors.title),
         company=_text(tree, selectors.company),
         location=_text(tree, selectors.location),
+        employment_type=employment_type,
+        salary=from_description(markdown),
+        apply_url=url,
         description=markdown,
         source=site,
         tier="site:html",

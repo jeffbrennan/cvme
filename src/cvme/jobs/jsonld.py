@@ -8,12 +8,14 @@ standard with named fields, so it survives redesigns.
 
 from __future__ import annotations
 
+import html as html_module
 import json
 import re
 from typing import Any
 
 from cvme.jobs.htmltext import to_markdown
 from cvme.jobs.models import JobPosting
+from cvme.jobs.salary import from_description
 
 _SCRIPT = re.compile(
     r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
@@ -111,6 +113,7 @@ def from_dict(node: dict[str, Any], url: str, *, source: str = "jsonld") -> JobP
     if location_type := _text(node.get("jobLocationType")):
         remote = location_type.upper() == "TELECOMMUTE"
 
+    description = _description(node.get("description"))
     return JobPosting(
         url=url,
         title=_text(node.get("title")),
@@ -119,13 +122,25 @@ def from_dict(node: dict[str, Any], url: str, *, source: str = "jsonld") -> JobP
         or _text(node.get("applicantLocationRequirements")),
         employment_type=_text(node.get("employmentType")),
         remote=remote,
-        salary=_salary(node.get("baseSalary")),
+        salary=_salary(node.get("baseSalary")) or from_description(description),
         posted=_text(node.get("datePosted"))[:10],
         apply_url=_text(node.get("url")) or url,
-        description=to_markdown(_text(node.get("description"))),
+        description=description,
         source=source,
         tier="jsonld",
     )
+
+
+def _description(value: Any) -> str:
+    """LinkedIn can entity-encode the entire HTML fragment inside JSON.
+
+    Decode that wrapper only when there is no literal markup, so escaped
+    examples inside ordinary HTML are not interpreted as elements.
+    """
+    text = _text(value)
+    if "<" not in text and re.search(r"&lt;/?[a-zA-Z][^&]*", text):
+        text = html_module.unescape(text)
+    return to_markdown(text)
 
 
 def extract(html: str, url: str, *, source: str = "jsonld") -> JobPosting | None:
@@ -133,6 +148,6 @@ def extract(html: str, url: str, *, source: str = "jsonld") -> JobPosting | None
     for block in _blocks(html):
         for node in _walk(block):
             posting = from_dict(node, url, source=source)
-            if posting.title or posting.description:
+            if posting.description:
                 return posting
     return None
