@@ -23,7 +23,10 @@
 /// which is how a preset turns the separator off without a second flag.
 #let rule(weight, color, gap: 0.0) = if weight > 0 {
   v(pt(gap), weak: false)
-  line(length: 100%, stroke: pt(weight) + color)
+  // A bare line adds default block spacing on both sides of the separator.
+  // Keep the configured rule and section/header gaps in control instead.
+  block(above: 0pt, below: 0pt,
+    line(length: 100%, stroke: pt(weight) + color))
 }
 
 /// Page, text and paragraph rules common to all document types.
@@ -103,8 +106,8 @@
 /// `text-wrap: balance`. Height is unchanged by construction, so it is free
 /// under the fit ladder, but it buys evenness at the cost of leaving the first
 /// line short of the measure.
-#let balanced(body, width, balance: false) = context {
-  let fit(w, content) = block(width: w, above: 0pt, below: 0pt, content)
+#let balanced(body, width, balance: false, spacing: 0pt) = context {
+  let fit(w, content) = block(width: w, above: spacing, below: spacing, content)
   if not balance { return fit(width, body) }
   let target = measure(fit(width, body)).height
   let single = measure(fit(width, [x])).height
@@ -143,7 +146,10 @@
       if text_width == none {
         markup(b.text)
       } else {
-        balanced(markup(b.text), text_width, balance: balance)
+        // Narrowing a paragraph must preserve its surrounding paragraph gap.
+        // Only list-item wrappers suppress spacing; otherwise the summary
+        // crowds the next section and the letterhead rule above it.
+        balanced(markup(b.text), text_width, balance: balance, spacing: auto)
       }
     } else if b.kind == "bullets" {
       list(..b.items.map(it => {

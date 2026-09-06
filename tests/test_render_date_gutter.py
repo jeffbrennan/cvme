@@ -27,6 +27,7 @@ from pathlib import Path
 import pdfplumber
 import pytest
 
+from cvme.md.parse import parse
 from cvme.models import Document
 from cvme.render.engine import compile_document
 from cvme.style.schema import Style
@@ -92,6 +93,33 @@ def test_off_by_default(standard: Style) -> None:
     """An existing document renders exactly as it did before this existed."""
     assert standard.date_gutter < 0
     assert standard.balance_bullets is False
+
+
+@pytest.mark.parametrize("overrides", [{"date_gutter": 8}, {"balance_bullets": True}])
+def test_narrow_summary_preserves_vertical_spacing(
+    standard: Style, tmp_path: Path, overrides: dict
+) -> None:
+    doc = parse("""---
+name: Morgan Avery
+---
+Short summary.
+
+## Experience
+### Engineer | Jul 2023 - Present
+- Built a platform.
+""")
+    wide = _render(doc, standard, tmp_path / "wide.pdf")
+    narrow = _render(
+        doc, standard.model_copy(update=overrides), tmp_path / "narrow.pdf"
+    )
+
+    def positions(path: Path) -> list[float]:
+        with pdfplumber.open(path) as pdf:
+            return [line["top"] for line in pdf.pages[0].extract_text_lines()]
+
+    # No text wraps here: changing width must not move the summary or the
+    # following section toward the preceding block.
+    assert positions(narrow) == pytest.approx(positions(wide), abs=0.1)
 
 
 def test_body_stops_clear_of_the_date_column(
