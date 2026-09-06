@@ -382,3 +382,24 @@ def test_the_report_carries_the_pay_and_the_hours_it_read(project: Path) -> None
     assert "**Pay** $150k-190k" in report
     assert "**Work-life " in report
     assert "unlimited pto" in report
+
+
+def test_wants_adjusts_fit_only_and_is_kept_out_of_skill_evidence(project: Path):
+    baseline = prep(project, "--fit-only")
+    assert baseline.exit_code == 0, baseline.output
+    with (project / CONFIG_NAME).open("a") as config:
+        config.write('\n[fit]\nwants = "WANTS.md"\n')
+    (project / "WANTS.md").write_text(
+        "---\nrules:\n  - name: Platform preference\n"
+        "    weight: -12\n    any_of: [Databricks]\n"
+        "    reason: Test preference\n---\nI want Rust.\n"
+    )
+    result = prep(project, "--fit-only")
+    assert result.exit_code == 0, result.output
+    assert "Platform preference" in result.output
+    assert "**-12**" in result.output
+    assert "posting: Databricks" in result.output
+    # Wanting Rust never makes it an answered requirement.
+    unanswered = result.output.split("**Not answered.**")[1].splitlines()[0]
+    assert "rust" in unanswered
+    assert not (project / "hunts" / YEAR).exists()

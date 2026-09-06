@@ -39,6 +39,7 @@ from cvme.hunt.pay import Pay
 from cvme.hunt.score import Fit
 from cvme.hunt.score import evaluate as evaluate_fit
 from cvme.hunt.store import ApplicationStore
+from cvme.hunt.wants import load as load_wants
 from cvme.jobs import sources, writer
 from cvme.jobs.models import JobPosting
 from cvme.style import color
@@ -231,6 +232,7 @@ def prep(
         corpus_text(config, wanted),
         config.search,
         extra_terms=config.fit.extra_terms,
+        wants=load_wants(config.fit.wants),
     )
     money, culture = conditions(config, posting)
     if fit_only:
@@ -421,6 +423,7 @@ def _write_report(
         style=resolve_style("standard"),
         generate=config.generate,
         agent_output_path=Path("background.md"),
+        wants_path=config.fit.wants,
     )
     prompt_path = write_prompt(bundle, prompts)
     if spec.writes_nothing:

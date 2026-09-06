@@ -209,6 +209,76 @@ the title 15, the stated years of experience 15, and the location 10. A posting
 your own filters exclude scores zero and says which filter did it. Extend the
 vocabulary for your field under `[fit.extra_terms]` in `cvme.toml`.
 
+#### Personal preferences: WANTS.md
+
+Skills fit answers “can I do this job?” Add a preferences file to also score
+“do I want this job?” Configure it explicitly (relative to `cvme.toml`):
+
+```toml
+[fit]
+wants = "WANTS.md"
+```
+
+`WANTS.md` contains YAML frontmatter for deterministic scoring and ordinary
+Markdown notes for the written company/role assessment. For example:
+
+```yaml
+---
+version: 1
+max_adjustment: 40
+rules:
+  - name: Modern platform not mentioned
+    weight: -8
+    when: absent
+    any_of: [Databricks, Snowflake]
+    reason: Prefer a modern data platform; confirm the stack if unstated.
+  - name: Platform ownership
+    weight: 8
+    any_of: [platform engineering, data platform, developer experience]
+    reason: I want to build infrastructure other engineers use.
+  - name: AI startup
+    weight: -15
+    any_of: [AI platform, AI-powered]
+    requires_any: [startup, early stage, venture backed]
+    reason: Prefer organizations with a longer operating history.
+---
+# What I want next
+Established healthcare organizations, platform ownership, and CI/CD.
+Ask about testing standards and the balance of maintenance vs. new work.
+```
+
+Each rule needs a unique `name`, nonzero integer `weight` (-40 to +40),
+`reason`, and nonempty `any_of` phrase list. Optional fields:
+
+| field | default | meaning |
+|---|---|---|
+| `when` | `present` | `present`: any phrase appears; `absent`: none appears |
+| `scope` | `posting` | Match `company`, `title`, `description`, or all three |
+| `requires_any` | `[]` | If supplied, at least one of these phrases must also appear |
+| `unless_any` | `[]` | Suppress the rule if any of these phrases appears |
+
+Matching ignores case and punctuation and uses whole tokens (`SAS` does not
+match `Sassy`). Each rule counts once regardless of repetitions or matching
+aliases. Empty capture fields do not trigger absence rules. Missing mentions
+are evidence about the captured posting, not proof about an employer. Context
+guards help, but phrase rules do not infer an employer's industry, age, or
+engineering quality. Prefer specific industry phrases over incidental words
+like “finance,” and scope named-employer preferences to `company`.
+
+`cvme prep` (including `--fit-only`) adds the summed preference adjustment,
+capped at ±`max_adjustment` (default 40), to the existing alignment score and
+clamps the result to 0–100. Exclusion filters still force zero. Reports show
+alignment, the adjustment, and every matched rule with its phrases and reason.
+The stored application fit and its band use this overall score. Work-life
+remains a separate assessment; `digest` discovery/filter scores are unchanged.
+With no configured file, scoring behaves as before. A configured missing or
+invalid file raises an error rather than silently dropping your preferences.
+
+Only the report prompt receives WANTS notes. They never enter the skills
+corpus, verification evidence, or resume/cover-letter prompts. Do not add
+`WANTS.md` to `project.facts`. Existing reports/scores are not rewritten;
+use `prep --fit-only` to review a posting under your current preferences.
+
 What that buys is the second half of `report.md`: which of the posting's own
 requirements your corpus answers, and which it does not.
 

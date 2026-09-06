@@ -100,6 +100,41 @@ def fit_block(
         "---",
         "",
     ]
+    if fit.preferences is not None:
+        prefs = fit.preferences
+
+        def cell(value: str) -> str:
+            return value.replace("|", "\\|").replace("\n", " ")
+
+        details = [
+            "### Personal preferences",
+            "",
+            f"Alignment **{fit.alignment_score}/100**; preference adjustment "
+            f"**{prefs.adjustment:+d}** (capped at ±{prefs.max_adjustment}). "
+            "Overall fit is clamped to 0–100; exclusion filters still hold it at zero.",
+            "",
+            "| signal | points | evidence | why it matters to you |",
+            "|---|---|---|---|",
+            *(
+                f"| {cell(s.name)} | {s.weight:+d} | {cell(s.evidence)} "
+                f"| {cell(s.reason)} |"
+                for s in prefs.signals
+            ),
+            "",
+            "Each rule counts once. Missing mentions describe the captured posting, "
+            "not proof of the employer's stack or standards. These are personal "
+            "preferences, not evidence of your skills.",
+            "",
+        ]
+        if not prefs.signals:
+            details += ["No preference rules matched.", ""]
+        # Insert before the computed/written boundary.
+        boundary = next(
+            i
+            for i, line in enumerate(lines)
+            if line.startswith("Everything above this line")
+        )
+        lines[boundary:boundary] = details
     return "\n".join(lines)
 
 

@@ -13,6 +13,11 @@ applications_dir = "applications"
 hunts_dir = "hunts"
 facts = ["facts/skills.md", "facts/metrics.md"]
 
+# Optional personal preferences; see README for the WANTS.md frontmatter.
+# Keep preferences separate from project.facts (evidence of your experience).
+# [fit]
+# wants = "WANTS.md"
+
 [documents.resume]
 path = "base/resume.md"
 template = "resume"

@@ -55,6 +55,15 @@ closest is Y, and here is what transfers" is the shape.
 Four to six, drawn from what the posting leaves ambiguous. No questions whose
 answer is already in the posting.
 
+If a WANTS section is provided, use it to assess whether this role suits the
+candidate in the role summary and questions. It describes preferences, never
+skills or employment history. Distinguish employer/domain evidence from
+incidental mentions (a hospital mentioning its finance department is not a
+finance company). Treat missing stack mentions as unknown and describe any
+startup or institutional-maturity cues as tentative. Do not infer standards
+from a familiar name. Ask about engineering practices and organizational
+history where the posting does not establish them.
+
 ### From general knowledge (unverified)
 
 As described above. Omit the heading entirely if you have nothing to put under

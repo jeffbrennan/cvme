@@ -95,6 +95,8 @@ class FitConfig(BaseModel):
     #: Canonical term -> the spellings that mean it, e.g.
     #: ``"clinical quality" = ["hedis", "star ratings"]``.
     extra_terms: dict[str, list[str]] = Field(default_factory=dict)
+    #: Optional Markdown preferences, kept outside the evidence corpus.
+    wants: Path | None = None
 
 
 class CultureConfig(BaseModel):
@@ -208,6 +210,8 @@ def load_config(path: Path) -> Config:
     config.project.hunts_dir = _resolve(root, config.project.hunts_dir)
     config.project.facts = [_resolve(root, f) for f in config.project.facts]
     config.search.database = _resolve(root, config.search.database)
+    if config.fit.wants is not None:
+        config.fit.wants = _resolve(root, config.fit.wants)
     for document in config.documents.values():
         document.path = _resolve(root, document.path)
     return config

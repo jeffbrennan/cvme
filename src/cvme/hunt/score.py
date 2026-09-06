@@ -20,6 +20,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from cvme.config import SearchConfig
+from cvme.hunt.wants import Preferences, Profile
+from cvme.hunt.wants import evaluate as evaluate_wants
 from cvme.jobs.models import JobPosting
 
 LEXICON_PATH = Path(__file__).parent / "lexicon.toml"
@@ -68,6 +70,8 @@ class Fit:
     components: list[Component] = field(default_factory=list)
     requirements: list[Requirement] = field(default_factory=list)
     blockers: list[str] = field(default_factory=list)
+    alignment_score: int | None = None
+    preferences: Preferences | None = None
 
     @property
     def band(self) -> str:
@@ -237,6 +241,7 @@ def evaluate(
     search: SearchConfig,
     *,
     extra_terms: dict[str, list[str]] | None = None,
+    wants: Profile | None = None,
 ) -> Fit:
     """Score one posting against the text of everything you can claim."""
     lexicon = load_lexicon(extra_terms)
@@ -278,4 +283,12 @@ def evaluate(
     ]
     blockers = _blockers(posting, search)
     total = 0 if blockers else round(sum(c.earned for c in components))
-    return Fit(int(total), components, requirements, blockers)
+    preferences = evaluate_wants(posting, wants) if wants is not None else None
+    overall = (
+        max(0, min(100, total + preferences.adjustment))
+        if preferences is not None and not blockers
+        else total
+    )
+    return Fit(
+        int(overall), components, requirements, blockers, int(total), preferences
+    )

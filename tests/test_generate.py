@@ -223,3 +223,25 @@ def test_a_timeout_is_reported_as_an_agent_error(tmp_path: Path) -> None:
     )
     with pytest.raises(agents.AgentError, match="timed out"):
         agents.run(spec, "p", tmp_path, tmp_path / "p.md")
+
+
+@pytest.mark.parametrize("template", ["report", "resume", "cover_letter"])
+def test_wants_only_enters_the_report_prompt(job: Path, tmp_path: Path, template: str):
+    wants = tmp_path / "WANTS.md"
+    wants.write_text("I want a healthcare platform role, not marketing.")
+    bundle = build(
+        document=template,
+        template=template,
+        base_path=FIXTURES / "resume.md",
+        job_path=job,
+        facts=FACTS,
+        output_path=tmp_path / "result.md",
+        style=resolve_style("standard"),
+        generate=GenerateConfig(),
+        wants_path=wants,
+    )
+    assert ("I want a healthcare platform role" in bundle.prompt) == (
+        template == "report"
+    )
+    if template == "report":
+        assert "WANTS (PREFERENCES, NOT EXPERIENCE EVIDENCE)" in bundle.prompt

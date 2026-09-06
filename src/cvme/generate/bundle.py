@@ -53,6 +53,7 @@ def build(
     style: Style,
     generate: GenerateConfig,
     agent_output_path: Path | None = None,
+    wants_path: Path | None = None,
 ) -> Bundle:
     """Assemble the prompt for one document."""
     task_file = PROMPTS / f"{template}.md"
@@ -99,6 +100,13 @@ def build(
     ]
     if template == "resume":
         parts.append(_section("GRAMMAR", GRAMMAR.read_text(encoding="utf-8")))
+    if template == "report" and wants_path is not None:
+        parts.append(
+            _section(
+                "WANTS (PREFERENCES, NOT EXPERIENCE EVIDENCE)",
+                _read([wants_path]),
+            )
+        )
 
     return Bundle(
         document=document,
