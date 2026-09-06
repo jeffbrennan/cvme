@@ -1025,3 +1025,76 @@ indistinguishable from not having downloaded it.
 Recording follows the same rule. `check --record` writes what the source saw,
 and keeps the previously recorded value for whatever it could not see, so
 checking with a PDF does not blank the skills a previous export established.
+
+### 16.7 The browser capture (opt-in)
+
+The PDF and the export both cost a detour to LinkedIn's UI. A local browser
+signed in as the author costs one command, and is the only route that reads the
+profile as it actually stands with no file to fetch first.
+
+It is also the only route LinkedIn does not permit. The user agreement
+prohibits automated access and carves out no exception for your own profile, so
+the feature is opt-in behind an extra, the account risk is the author's to
+accept, and the code says so where someone changing it will read it.
+
+What that means in the implementation, because "we were careful" is not a
+design note:
+
+* the browser is visible, and is plainly Chromium under automation;
+* the author types their own credentials into LinkedIn's own form and clears
+  their own MFA; cvme never handles a credential;
+* `launch_persistent_context` is called with no arguments, because the flags
+  that would go there are the ones that hide automation. A challenge stops the
+  capture rather than being worked around. Automating your own account is one
+  thing; defeating the controls that would notice is another;
+* the session navigates to the profile LinkedIn resolves for the signed-in
+  account and confirms it with a control only an owner sees. No target URL is
+  accepted from the caller, so it cannot be pointed at anybody else;
+* the Chromium profile is cvme's own, under the user data directory at mode
+  700, never the everyday browser profile, so the session can be revoked
+  without touching a real one.
+
+#### Status, because a capture is an inference
+
+A page that lazy-loads, collapses text and paginates cannot be read with the
+confidence a CSV can. So each section carries `complete`, `empty`, `partial` or
+`unavailable`, and only the first two feed `Source.covers`.
+
+This is the same coverage mechanism the PDF and export sources already use, and
+that is the point: a capture, a PDF and an export are interchangeable to the
+audit. The rules about partial sources were written once, in 16.6, and the
+browser did not need its own.
+
+The failure this prevents is specific. A timeout that reported "missing from
+LinkedIn" would send the author to paste in a role that is already there, and
+the second time it did that they would stop believing the tool. `partial`
+narrows what can be compared instead, which is a smaller and true statement.
+
+The rule that holds under a layout change is corroboration. A missing section
+anchor means either "this member has no Education" or "LinkedIn renamed the
+anchor", and nothing local to the section distinguishes them. So absence is
+believed only when some other section parsed; when none did, every section
+becomes `unavailable`. Without it, a rewritten layout reports the whole profile
+as empty, which is the most confidently wrong output the tool could produce.
+
+#### What the tests can and cannot prove
+
+CI cannot reach LinkedIn, so `SELECTORS` in `linkedin/dom.py` is a
+reconstruction and no test asserts it is current. The fixture tests drive real
+Playwright against sanitised local pages and cover what survives a selector
+rewrite: text duplicated into aria-hidden spans read once, roles nested under
+one employer flattened, a body expanded before it is read, a list still growing
+reported as partial, an established absence distinguished from a failed read,
+and an unrecognised layout producing no findings at all.
+
+Two design choices came directly out of writing those fixtures. The description
+is read from its own container rather than taken as "the lines after the
+location", and the date range is *found* rather than indexed -- a role with an
+employment type has one more header line than a role without, and a nested role
+has one fewer because its employer is on the card above, so any fixed index is
+wrong for two of the three shapes.
+
+`cvme linkedin capture` exists for the part tests cannot cover: it prints the
+recovered profile and the per-section status, so drift between the selectors
+and the live page is diagnosed by looking, and `dom.py` is the only file to
+edit when it happens.

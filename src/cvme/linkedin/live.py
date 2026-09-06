@@ -5,6 +5,7 @@ Ordered by how little work they cost you, not by how much they return:
 =======================  ===========  ==============================
 Source                   Effort       Reports
 =======================  ===========  ==============================
+Browser capture          one command  what it can read, section by section
 Profile PDF              one click    headline, About, roles, degrees
 Data export (CSV/ZIP)    a few mins   all of it, structured
 =======================  ===========  ==============================
@@ -13,13 +14,20 @@ The PDF is *More > Save to PDF* on your own profile: it downloads immediately,
 and cvme already knows how to read a PDF resume, so the whole path is the
 existing ``convert`` pipeline pointed at a different document.
 
-What is deliberately absent is fetching ``linkedin.com/in/...`` over HTTP. It
-is not a technical gap. LinkedIn's user agreement forbids automated access,
-and *hiQ Labs v. LinkedIn* ended in 2022 with a $500,000 judgment against hiQ
-for breach of that agreement and a permanent injunction to stop and delete
-what it had taken -- the widely-quoted ruling that scraping public pages is
-not a *CFAA* crime left the contract claim untouched, and LinkedIn won it.
-The same judgement is already recorded for job capture in ``jobs/sources.py``.
+The browser capture drives a local, visible Chromium signed in as you, and
+reads only your own profile. It is the most convenient of the three and the
+only one that is not sanctioned: LinkedIn's user agreement forbids automated
+access and carves out no exception for your own profile. It is opt-in for that
+reason, and ``browser`` says the rest.
+
+Anonymous fetching of ``linkedin.com/in/...`` remains absent, and is a
+different thing from the above: it reads other people's pages, at whatever
+scale the caller likes. *hiQ Labs v. LinkedIn* ended in 2022 with a $500,000
+judgment against hiQ for breach of the user agreement and a permanent
+injunction to stop and delete what it had taken -- the widely-quoted ruling
+that scraping public pages is not a *CFAA* crime left the contract claim
+untouched, and LinkedIn won it. ``jobs/sources.py`` records the same
+judgement for job pages.
 
 Every source says which parts of a profile it actually reports. A profile PDF
 lists "Top Skills" rather than all of them, and a partial export may hold one
@@ -75,13 +83,17 @@ def read(path: Path) -> Source:
 
 
 _HOW = """\
-  Two ways to get your profile, neither of which needs an API:
+  Ways to get your profile, none of which needs an API:
 
     1. Your profile > More > Save to PDF          (one click, immediate)
        cvme linkedin check ~/Downloads/Profile.pdf
 
     2. Settings & Privacy > Data Privacy > Get a copy of your data
        cvme linkedin check ~/Downloads/Basic_LinkedInDataExport.zip
+
+    3. A local browser signed in as you. LinkedIn's terms do not permit it;
+       see `cvme linkedin login --help`.
+       cvme linkedin check --browser
 
   The PDF is quicker; the export is complete, and is the one that can vouch
   for your skills list."""

@@ -68,32 +68,93 @@ It exits non-zero on drift, so it works as a CI or cron check.
 
 | Source | How | Effort | Reports |
 |---|---|---|---|
+| **Browser capture** | `cvme linkedin check --browser` | one command | what it can read, section by section |
 | **Profile PDF** | Your profile → More → **Save to PDF** | one click, immediate | headline, About, roles, degrees |
 | **Data export** | Settings & Privacy → Data Privacy → **Get a copy of your data** | emailed in minutes | all of it, including skills |
 
-The PDF is the one to reach for. cvme already reads PDF resumes -- that is what
-`cvme convert` does -- and a profile PDF is resume-shaped, so the whole path is
-the existing pipeline pointed at a different document:
+The PDF needs no setup and no permission. cvme already reads PDF resumes --
+that is what `cvme convert` does -- and a profile PDF is resume-shaped, so the
+whole path is the existing pipeline pointed at a different document:
 
 ```
 PDF ──convert──▶ markdown ──parse──▶ document IR ──project──▶ Profile
 ```
 
-### Why not just fetch the public profile page
+The browser capture is the most convenient and the only one LinkedIn's terms
+do not permit. It has its own section below.
 
-Because it is forbidden, not because it is hard.
+### The browser capture, and what it costs you
 
-LinkedIn's user agreement prohibits automated access, and *hiQ Labs v.
-LinkedIn* settled that in 2022: a **$500,000 judgment against hiQ for breach of
-that agreement**, plus a permanent injunction to stop scraping and delete
-everything it had taken. The widely-quoted ruling in that case — that scraping
+```bash
+uv sync --extra browser && uv run playwright install chromium
+cvme linkedin login            # a window opens; you sign in
+cvme linkedin capture          # read the profile, print what was recovered
+cvme linkedin check --browser  # read it and audit it
+cvme linkedin logout           # delete the stored session
+```
+
+**LinkedIn's user agreement prohibits automated access, and does not carve out
+your own profile.** The risk is to your account and it is yours to accept. cvme
+makes that explicit rather than quiet:
+
+* the browser is **visible**, and is plainly Chromium under automation;
+* **you** type your credentials into LinkedIn's own form, and clear your own
+  MFA. cvme never handles a credential;
+* **no detection evasion**. No stealth patches, no fingerprint masking, no
+  spoofed user agent, no proxy. `launch_persistent_context` is called with no
+  arguments, and the comment above it says why. If LinkedIn presents a
+  challenge, the capture stops and tells you;
+* **your own profile only.** The session navigates to the profile LinkedIn
+  resolves for the signed-in account and verifies it with a control that only
+  renders for the owner. No target URL is accepted, so this cannot be pointed
+  at anyone else.
+
+The session lives in a Chromium profile of cvme's own under
+`~/.local/share/cvme/linkedin-browser` (mode 700, it holds live cookies), never
+your everyday browser profile. `cvme linkedin logout` deletes it.
+
+Anonymous fetching of `linkedin.com/in/...` is a different thing and stays
+absent: it reads other people's pages, at whatever scale the caller likes.
+*hiQ Labs v. LinkedIn* closed in 2022 with a **$500,000 judgment against hiQ
+for breach of the user agreement**, plus a permanent injunction to stop and
+delete what it had taken. The widely-quoted ruling in that case — that scraping
 public pages is not a *CFAA* crime — left the contract claim untouched, and
-LinkedIn won it. In practice logged-out profile views are also gated, reduced,
-and served behind an auth wall from anything that looks automated.
+LinkedIn won it. `jobs/sources.py` records the same judgement for job pages.
 
-This project already takes that position for job capture (`jobs/sources.py`
-reports what it cannot reach rather than bypassing it), and the same reasoning
-applies here.
+### How much of a capture to believe
+
+A capture is an inference from a page that lazy-loads, collapses text behind
+"see more", paginates, and changes layout without notice. So each section
+carries a status, and only two of the four license a claim about what is *not*
+on your profile:
+
+| Status | Meaning | Can it support "missing"? |
+|---|---|---|
+| `complete` | every entry and expanded body recovered | yes |
+| `empty` | the page established the section has none | yes |
+| `partial` | something recovered, completeness unknown | no |
+| `unavailable` | navigation or parsing failed | no |
+
+`partial` and `unavailable` narrow the audit's coverage instead. A timeout
+reports "could not check", never "missing from LinkedIn" — the second would
+send you to paste in a role that is already there, and the second time it did
+that you would stop believing the tool.
+
+The rule that makes this hold under a layout change is corroboration: a section
+anchor that is not on the page means either "no Education on this profile" or
+"LinkedIn renamed the anchor", and the two are told apart by whether *any other*
+section parsed. If none did, every section becomes `unavailable` rather than
+`empty`, so a rewritten layout produces "could not check" instead of "your
+entire profile is missing".
+
+**The selectors are a reconstruction, not a verified contract.** cvme's tests
+cannot reach LinkedIn, so they exercise the extraction logic against sanitised
+fixture pages in a real browser: duplicated aria-hidden text, roles nested
+under one employer, collapsed bodies, a list that keeps growing, and a layout
+cvme does not recognise. What no test can prove is that `SELECTORS` in
+`linkedin/dom.py` matches today's markup. `cvme linkedin capture` prints
+exactly what was recovered, which is how you check that, and `dom.py` is the
+only file to edit when it drifts.
 
 ### Findings
 
@@ -164,6 +225,10 @@ cvme linkedin check SRC  # audit against a profile PDF or export; fails on drift
 cvme linkedin record     # mark the current documents as applied
 cvme linkedin status     # sources, and what is outstanding
 cvme linkedin reset      # forget the state; offer the whole profile again
+
+cvme linkedin login      # sign in to LinkedIn in a local browser
+cvme linkedin capture    # read the profile in that browser, print what it got
+cvme linkedin logout     # delete the stored browser session
 ```
 
 `sync --record` records as it writes, for when you paste as you go. Prefer
@@ -178,8 +243,14 @@ base.md ──parse──┐
 linkedin.md ─────┘                                      ▲    └─diff──▶ audit
    (optional)                                           │           ▲
                                              last recorded state    │
-                              profile PDF / data export ──read──────┘
+                    browser / profile PDF / data export ──read──────┘
 ```
+
+Every source produces the same thing: a `Profile` plus the set of parts it can
+vouch for. The browser capture arrives via `Capture`, which carries a status
+per section and turns the two trustworthy ones into that set. So a capture, a
+PDF and an export are interchangeable to the audit, and the rules about partial
+sources were written once.
 
 The audit is the same comparison read the other way round. Diffing the
 projected profile against the live one turns `add` into "missing", `update`

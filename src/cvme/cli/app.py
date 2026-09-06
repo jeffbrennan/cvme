@@ -77,6 +77,17 @@ def doctor() -> None:
         mark = "[green]ok[/green]" if available else "[yellow]absent[/yellow]"
         err_console.print(f"agent {spec.name}: {mark} {detail}")
 
+    # Optional too: every profile source but the browser one works without it.
+    try:
+        import playwright  # noqa: F401
+
+        err_console.print("browser capture: [green]ok[/green] playwright installed")
+    except ImportError:
+        err_console.print(
+            "browser capture: [yellow]absent[/yellow] "
+            "`uv sync --extra browser && uv run playwright install chromium`"
+        )
+
     if not ok:
         raise typer.Exit(1)
 

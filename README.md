@@ -591,12 +591,32 @@ LinkedIn, out of date) or `extra` (on LinkedIn, not in your documents). The
 first two fail; `extra` only fails under `--strict`, because a resume drops an
 old job for space and the profile keeping it is not drift.
 
-**Not fetching the public page is a choice, not a gap.** LinkedIn's user
-agreement forbids automated access, and *hiQ Labs v. LinkedIn* ended in 2022
-with a $500,000 judgment against hiQ for breaching it and an injunction to
-delete what it had taken -- the well-known ruling that scraping public pages is
-not a *CFAA* crime left the contract claim untouched, and LinkedIn won that
-one.
+There is also an opt-in browser capture, which reads your own profile from a
+local Chromium you are signed in to:
+
+```bash
+uv sync --extra browser && uv run playwright install chromium
+cvme linkedin login            # a window opens; you sign in
+cvme linkedin check --browser
+```
+
+**LinkedIn's user agreement prohibits automated access and does not carve out
+your own profile, so this is yours to opt into and the account risk is yours.**
+cvme keeps it honest rather than quiet: the browser is visible, you type your
+own credentials and clear your own MFA, there is no detection evasion of any
+kind, and the session reads the profile LinkedIn resolves for your account and
+refuses anything else. `cvme linkedin logout` deletes the stored session.
+
+A capture reports a status per section -- `complete`, `empty`, `partial`,
+`unavailable` -- and only the first two can support "missing from LinkedIn". A
+timeout says "could not check". `cvme linkedin capture` prints what was
+recovered, which is how you check the selectors against the real page.
+
+**Anonymous fetching of other people's pages stays absent.** *hiQ Labs v.
+LinkedIn* ended in 2022 with a $500,000 judgment against hiQ for breaching the
+user agreement and an injunction to delete what it had taken -- the well-known
+ruling that scraping public pages is not a *CFAA* crime left the contract claim
+untouched, and LinkedIn won that one.
 
 The changeset is a file you paste from: every changed field, in the order
 LinkedIn's editor presents them, with the new text in a fenced block and where

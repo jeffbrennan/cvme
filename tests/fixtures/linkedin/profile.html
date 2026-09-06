@@ -1,0 +1,109 @@
+<!doctype html>
+<!--
+  A sanitised stand-in for a signed-in LinkedIn profile page.
+
+  Not a copy of LinkedIn's markup: it reproduces the structural facts the
+  extractor depends on, and nothing else. Those facts are the contract this
+  fixture exists to hold cvme to:
+
+    * every entry's text is duplicated into an aria-hidden span, so a reader
+      that takes both gets everything twice;
+    * long bodies are collapsed behind a "see more" button;
+    * promotions at one employer nest inside a single card, company outside;
+    * dates carry a computed duration after a middle dot;
+    * sections are found through a stable #id on an anchor inside them.
+
+  If LinkedIn changes a class name, this fixture keeps passing and the live
+  capture breaks -- which is why `cvme linkedin capture` prints what it read.
+-->
+<title>Morgan Avery | LinkedIn</title>
+
+<main>
+  <section class="top-card">
+    <h1>Morgan Avery</h1>
+    <div class="text-body-medium break-words">Staff Data Engineer | Streaming platforms</div>
+    <button aria-label="Add profile section">Add profile section</button>
+  </section>
+
+  <section>
+    <div id="about"></div>
+    <h2>About</h2>
+    <div class="display-flex full-width">
+      <span aria-hidden="true">Six years across the data lifecycle.</span>
+      <span class="visually-hidden">Six years across the data lifecycle.</span>
+    </div>
+    <div class="display-flex full-width">
+      <span aria-hidden="true">I care about pipelines a team can reason about at 3am.</span>
+      <span class="visually-hidden">I care about pipelines a team can reason about at 3am.</span>
+    </div>
+  </section>
+
+  <section>
+    <div id="experience"></div>
+    <h2>Experience</h2>
+    <ul>
+      <!-- Two roles at one employer: company on the card, roles nested. -->
+      <li class="artdeco-list__item">
+        <span aria-hidden="true">Northwind Analytics</span>
+        <span class="visually-hidden">Northwind Analytics</span>
+        <ul>
+          <li class="pvs-list__paged-list-item">
+            <span aria-hidden="true">Staff Data Engineer</span>
+            <span aria-hidden="true">Full-time</span>
+            <span aria-hidden="true">Jul 2023 - Present · 3 yrs 2 mos</span>
+            <span aria-hidden="true">New York, NY</span>
+            <div class="inline-show-more-text">
+              <span aria-hidden="true">Own ingestion for several hundred tenants</span>
+            </div>
+          </li>
+          <!-- The same role without an employment type: the date line moves. -->
+          <li class="pvs-list__paged-list-item">
+            <span aria-hidden="true">Senior Data Engineer</span>
+            <span aria-hidden="true">Jan 2022 - Jul 2023 · 1 yr 7 mos</span>
+            <span aria-hidden="true">New York, NY</span>
+            <div class="inline-show-more-text">
+              <span aria-hidden="true">Built the streaming backbone</span>
+            </div>
+          </li>
+        </ul>
+      </li>
+
+      <!-- One role, with a body behind a "see more". -->
+      <li class="artdeco-list__item">
+        <span aria-hidden="true">Data Engineer</span>
+        <span aria-hidden="true">GreyHarbor Health · Full-time</span>
+        <span aria-hidden="true">Dec 2020 - Jul 2023 · 2 yrs 8 mos</span>
+        <span aria-hidden="true">Remote</span>
+        <div class="inline-show-more-text">
+          <span aria-hidden="true" id="grey-body" hidden>Managed quality measures across 14 facilities</span>
+        </div>
+        <button class="inline-show-more-text__button" onclick="document.getElementById('grey-body').hidden = false">
+          see more
+        </button>
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <div id="education"></div>
+    <h2>Education</h2>
+    <ul>
+      <li class="artdeco-list__item">
+        <span aria-hidden="true">Ridgeway University</span>
+        <span aria-hidden="true">Master of Science, Epidemiology</span>
+        <span aria-hidden="true">2018 - 2020</span>
+        <span aria-hidden="true">Certificate: Data Science</span>
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <div id="skills"></div>
+    <h2>Skills</h2>
+    <ul>
+      <li class="artdeco-list__item"><span aria-hidden="true">Python</span></li>
+      <li class="artdeco-list__item"><span aria-hidden="true">SQL</span></li>
+      <li class="artdeco-list__item"><span aria-hidden="true">Apache Spark</span></li>
+    </ul>
+  </section>
+</main>

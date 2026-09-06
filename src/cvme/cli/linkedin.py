@@ -121,14 +121,88 @@ def sync_(
 
 @app.command()
 @handled
+def login(
+    config_path: Annotated[
+        Path | None, typer.Option("--config", help="Path to cvme.toml.")
+    ] = None,
+) -> None:
+    """Open a browser for you to sign in to LinkedIn, and keep the session.
+
+    LinkedIn's user agreement prohibits automated access and makes no
+    exception for your own profile, so this is opt-in and the risk to your
+    account is yours. cvme never types a credential, never hides that it is
+    automation, and stops rather than work around a verification challenge.
+
+    The session is a Chromium profile of cvme's own, separate from your
+    everyday browser. `cvme linkedin logout` deletes it.
+    """
+    del config_path
+    from cvme.linkedin import browser
+
+    with browser.session() as page:
+        browser.login(page)
+        url = browser.own_profile(page)
+    typer.echo(f"Signed in. Session stored in {browser.session_dir()}")
+    typer.echo(f"Profile bound to {url}")
+
+
+@app.command()
+@handled
+def logout() -> None:
+    """Delete cvme's stored browser session."""
+    from cvme.linkedin import browser
+
+    if browser.forget():
+        typer.echo(f"Removed {browser.session_dir()}")
+    else:
+        typer.echo("No browser session was stored.")
+
+
+@app.command()
+@handled
+def capture(
+    output: Annotated[
+        Path | None,
+        typer.Option("--out", "-o", help="Write the capture as JSON to this file."),
+    ] = None,
+) -> None:
+    """Read your profile in the browser and print what was recovered.
+
+    The capture-only path: it compares nothing and records nothing, so it is
+    the command to run while checking that extraction actually matches the
+    page in front of you.
+    """
+    from cvme.linkedin import browser
+
+    with browser.session() as page:
+        result = browser.capture(page)
+
+    typer.echo(f"captured {result.profile_url}")
+    for line in result.lines():
+        typer.echo(line)
+    body = result.model_dump_json(indent=2, exclude_defaults=True)
+    if output is None:
+        typer.echo(body)
+        return
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(body + "\n", encoding="utf-8")
+    typer.echo(f"wrote {output}")
+
+
+@app.command()
+@handled
 def check(
     profile: Annotated[
-        Path,
+        Path | None,
         typer.Argument(
             help="Your profile PDF (More > Save to PDF), or a data export "
-            "ZIP/directory."
+            "ZIP/directory. Omit it with --browser."
         ),
-    ],
+    ] = None,
+    browser_source: Annotated[
+        bool,
+        typer.Option("--browser", help="Read the profile from a signed-in browser."),
+    ] = False,
     strict: Annotated[
         bool,
         typer.Option(
@@ -149,16 +223,17 @@ def check(
 ) -> None:
     """Check the live profile against the source documents, and fail on drift.
 
-    Quickest: your profile > More > Save to PDF, then point this at it. The
-    data export (Settings & Privacy > Data Privacy > Get a copy of your data)
-    takes a few minutes and is the one that can vouch for your skills list.
+    Quickest sanctioned route: your profile > More > Save to PDF, then point
+    this at it. The data export (Settings & Privacy > Data Privacy > Get a
+    copy of your data) takes a few minutes and is the one that can vouch for
+    your skills list.
 
-    Neither is optional politeness: reading a profile back over HTTP is
-    forbidden by LinkedIn's user agreement, and the API's read scopes are as
-    partner-gated as its write ones.
+    `--browser` reads your own profile from a signed-in local browser. It is
+    the most convenient and the only one LinkedIn's terms do not permit; see
+    `cvme linkedin login --help`.
     """
     config = _config(config_path)
-    source = live.read(profile)
+    source = _source(profile, browser_source)
     typer.echo(f"read {source.label}")
 
     if show:
@@ -222,6 +297,24 @@ def reset(
     config = _config(config_path)
     cleared = sync_state.clear(config.root)
     typer.echo("Sync state cleared." if cleared else "No sync state was recorded.")
+
+
+def _source(profile: Path | None, use_browser: bool) -> live.Source:
+    """Whichever source the flags name, refusing an ambiguous pair."""
+    if use_browser == (profile is not None):
+        raise ConfigError(
+            "name one source: a profile PDF or export path, or --browser."
+        )
+    if profile is not None:
+        return live.read(profile)
+
+    from cvme.linkedin import browser
+
+    with browser.session() as page:
+        result = browser.capture(page)
+    for line in result.lines():
+        err_console.print(line)
+    return result.as_source()
 
 
 def _warn(plan: Plan) -> None:
