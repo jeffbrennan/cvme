@@ -40,6 +40,7 @@ Under construction, milestone by milestone. See
 | M8 — `cvme ats`: check the rendered PDF the way a parser reads it | done |
 | M9 — `cvme prep` and `cvme apps`: one directory per posting, tracked | done |
 | M10 — pay and work-life read from the posting, sortable in `cvme apps` | done |
+| M11 — `cvme linkedin`: one-way sync from the source documents | review transport done; API implemented, gated on LinkedIn partner access |
 
 ## Design
 
@@ -553,6 +554,59 @@ preset therefore reads as the short list of decisions it actually makes.
 
 The authoring grammar is [`src/cvme/md/GRAMMAR.md`](src/cvme/md/GRAMMAR.md).
 `tests/fixtures/resume.md` is a complete worked example.
+
+## Keeping LinkedIn in step
+
+`base.md` is the source of truth; the profile is a projection of it. `cvme
+linkedin` reports what has changed since the last time you pushed, so an edit
+to one bullet is one field to update rather than a profile to re-read.
+
+```bash
+cvme linkedin diff       # what has changed since the last recorded sync
+cvme linkedin sync       # write out/linkedin-changeset.md
+cvme linkedin record     # mark the current documents as applied
+cvme linkedin status
+```
+
+A profile has no page to fit, so an optional `linkedin.md` beside the resume
+carries the longer copy. It is a patch, not a second resume: write only the
+sections and entries that should read differently, and everything else comes
+from `base.md`. It needs no configuration -- the file being there is what turns
+it on, and `base/linkedin.md.example` is a template to rename.
+
+```markdown
+---
+headline: Staff Data Engineer | Streaming platforms | Python, Spark, Databricks
+---
+
+## Experience
+
+### Staff Data Engineer @ Northwind Analytics | Jul 2023 – Present
+
+- Every bullet the page could not fit, up to LinkedIn's 2,000 characters
+```
+
+Entries match on role, organisation and start date, so an overlay keeps
+matching the day "Present" becomes a real end date.
+
+**On the API.** LinkedIn's Profile Edit API can write positions, educations and
+skills, and it is restricted to developers approved through a partner
+programme. The self-serve tier grants `openid`, `profile`, `email` and
+`w_member_social`, none of which writes a profile section. So a fully automated
+push is not available to most people, and `--transport review` -- which writes
+the changed fields to a file you paste in -- is the default and needs no
+LinkedIn app at all.
+
+`--transport api` is implemented against the documented endpoints for the day
+that access exists. It shares the projection, the diff and the state with the
+review path, so both are exercised by the same tests. Credentials live at
+`~/.config/cvme/linkedin.json`, mode `0600`, never in the project; `cvme
+linkedin setup` walks through creating the app and stores them.
+
+Over-long fields are refused rather than truncated, and sections cvme has no
+LinkedIn field for are reported rather than dropped. The full design, the
+mapping table and the credential handling are in
+[docs/linkedin-sync.md](docs/linkedin-sync.md).
 
 ## Guardrails
 

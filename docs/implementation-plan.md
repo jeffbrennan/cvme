@@ -844,3 +844,91 @@ not have to walk and re-parse the tree.
 
 `cvme apps list` sorts by fit descending and shows only unsent applications by
 default, since that is the order and the subset to spend an evening in.
+
+## 16. LinkedIn sync (Milestone 11)
+
+`base.md` states what is true; the LinkedIn profile restates it in a web form
+and drifts the moment the resume changes. The profile becomes a projection of
+the document, and the projection is the whole of the feature's opinion, so it
+is written down in one place (`linkedin/project.py`) rather than spread through
+the transports.
+
+### 16.1 The access problem, stated first
+
+LinkedIn's Profile Edit API exists, is documented, and is restricted to
+developers approved through a partner programme. The self-serve tier grants
+`openid`, `profile`, `email` and `w_member_social`; none writes a profile
+section. A fully automated push is therefore unavailable to almost everyone,
+and no amount of correct code changes that.
+
+Two options followed from that, and both were taken. The default transport
+writes a changeset for a person to paste, which needs no LinkedIn app and works
+today. The API transport is implemented against the documented endpoints so the
+access, if it arrives, is a flag rather than a project. They share the
+projection, the diff and the state, so the shared 90% is exercised whichever
+one runs.
+
+The option not taken was driving a logged-in browser. It violates LinkedIn's
+terms, and the same judgement is already recorded for job capture in
+`jobs/sources.py`: cvme reports what it cannot reach rather than bypassing it.
+
+### 16.2 The overlay
+
+A profile has no page budget, so the copy differs from the resume's. The
+temptation is a second document; the cost of a second document is exactly the
+drift the feature exists to remove.
+
+So `linkedin.md` is a patch in the same grammar, merged on the document IR
+before projection. It states only what should read differently, and everything
+else comes from `base.md`. Merging on the IR rather than after projection means
+the mapping is written once and neither file gets a special case.
+
+Entries match on role, organisation and start date. The end date is deliberately
+excluded: the entry an overlay most wants to extend is the current role, and a
+key containing "Present" would stop matching the day that became a date, quietly
+appending a duplicate job rather than replacing one.
+
+### 16.3 Diffing against the last push
+
+A one-way sync needs a memory, and the memory cannot be LinkedIn: reading
+positions back needs the same partner access as writing them. So the last
+applied profile is recorded in `.cvme/linkedin/state.json` and the next run
+diffs against it. An edit to one bullet is then one field to update, rather
+than a whole profile to overwrite.
+
+The state is written when a sync is applied and at no other time. For the review
+transport that means cvme cannot know the file was pasted in, so it does not
+claim so — `cvme linkedin record` is a separate step, and saying "recorded" when
+nothing was applied would be the one lie that makes every later diff wrong.
+
+A corrupt state file is an error rather than a silent reset, for the same
+reason: resetting would present the whole profile as new and re-push every
+field.
+
+### 16.4 Limits are checked, not applied
+
+The composer caps the headline at 220 characters, About at 2,600 and a role
+description at 2,000. Truncating to fit would put a half-sentence on a public
+profile, so every over-long field is named and the sync stops. It is the same
+principle as `cvme verify`: the failure is worth more than the output.
+
+Sections with no LinkedIn field — `Projects`, say — are reported rather than
+dropped, because "a third of your document was ignored" should not be something
+you discover from the profile. `## Gaps` is the exception and is dropped at the
+projection boundary, since a public profile is the worst possible destination
+for a list of your weaknesses.
+
+### 16.5 Credentials
+
+Needed only for the API transport. The rules, in the order they mattered:
+nothing secret in the project, because `cvme.toml` is committed; the filesystem
+is the boundary, so `0600` in a `0700` directory, opened through `os.open` so
+there is no window in which the file is world-readable; a file other users can
+read is refused rather than repaired, because it may already have been read and
+repairing the mode would hide that; and no secret reaches a log, an error or a
+terminal.
+
+The flow is the authorization code grant over a loopback redirect bound to
+`127.0.0.1`, with a 32-byte `state` compared using `secrets.compare_digest`.
+LinkedIn is a confidential client, so there is a client secret and no PKCE to
+use instead.

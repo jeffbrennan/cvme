@@ -1,0 +1,32 @@
+---
+# Everything here is optional. Rename this file to `linkedin.md` to switch it
+# on; `cvme linkedin` picks it up from beside the resume with no configuration.
+#
+# This is a patch over `resume.md`, not a second resume. Write only the parts
+# that should read differently on a profile that has no page to fit. Anything
+# left out comes from the resume, which stays the single source of truth.
+#
+# The headline LinkedIn shows under your name, up to 220 characters. Without
+# one, cvme uses your current role, the same as LinkedIn does.
+headline: Your Role | What you build | The three tools you want to be found for
+---
+
+## Summary
+
+This replaces the resume's summary in the About section, where you have 2,600
+characters instead of four lines. Say what you work on, who it is for, and what
+you are looking for next.
+
+Blank lines survive, so this can be several paragraphs.
+
+## Experience
+
+### Your Role @ Your Employer | Mon YYYY – Present
+
+The entry header must match the resume's -- role, organisation and start date
+-- or this is added as a second job rather than replacing the first one. The
+end date is not matched on, so "Present" here and a real date there is fine.
+
+- Every bullet the page could not fit
+- Up to 2,000 characters per role, against a resume's five lines
+- Bullets that would have been cut for length rather than for being untrue

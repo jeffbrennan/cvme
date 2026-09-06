@@ -50,6 +50,22 @@ default = ""
 # [accent.companies]
 # "Northwind Analytics" = "#004b87"
 
+# One-way sync to a LinkedIn profile: `cvme linkedin sync`. The resume is the
+# source of truth and the profile is a projection of it, so nothing here is
+# needed to start -- `cvme linkedin diff` works on the defaults below.
+[linkedin]
+# Which configured document the profile is projected from.
+document = "resume"
+# The optional long-form overlay. Left unset, cvme uses `linkedin.md` beside
+# the source document when that file exists; `base/linkedin.md.example` is a
+# template, inert until you rename it.
+# overlay = "base/linkedin.md"
+# Which parts of the profile cvme is allowed to write. Drop one to keep a
+# section you curate on LinkedIn out of the sync.
+fields = ["headline", "summary", "positions", "educations", "skills"]
+# Where `--transport review` writes the changeset, under output_dir.
+changeset = "linkedin-changeset.md"
+
 [generate]
 # Which agent `cvme tailor` invokes. See `cvme doctor` for what is installed,
 # and src/cvme/generate/agents.toml for the argv each name expands to.
