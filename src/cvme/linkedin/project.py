@@ -157,7 +157,7 @@ def _education(entry: Entry) -> Education:
     dates = flatten(entry.head.right)
     degree = field = ""
     if entry.sub is not None:
-        degree, field = _degree(flatten(entry.sub.left))
+        degree, field = degree_and_field(flatten(entry.sub.left))
         dates = flatten(entry.sub.right) or dates
     start, end = _education_dates(dates)
     return Education(
@@ -184,7 +184,8 @@ def _education_dates(text: str) -> tuple[MonthYear | None, MonthYear | None]:
     return start, end
 
 
-def _degree(text: str) -> tuple[str, str]:
+def degree_and_field(text: str) -> tuple[str, str]:
+    """Split a degree line into LinkedIn's Degree and Field of study."""
     parts = _DEGREE_SPLIT.split(text, maxsplit=1)
     if len(parts) != 2:
         return text, ""

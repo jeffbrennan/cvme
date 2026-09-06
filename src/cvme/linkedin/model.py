@@ -19,7 +19,8 @@ sentence loses its verb somewhere no one is looking.
 from __future__ import annotations
 
 import re
-from typing import Annotated, Literal
+from collections.abc import Collection
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import BaseModel, BeforeValidator, Field
 
@@ -162,6 +163,32 @@ class Profile(BaseModel):
     positions: list[Position] = Field(default_factory=list)
     educations: list[Education] = Field(default_factory=list)
     skills: list[Skill] = Field(default_factory=list)
+
+    #: The parts a profile is made of, and the attribute each name refers to.
+    #: Used both by `[linkedin] fields` and by a source declaring what it can
+    #: actually speak to.
+    PARTS: ClassVar[tuple[str, ...]] = (
+        "headline",
+        "summary",
+        "positions",
+        "educations",
+        "skills",
+    )
+
+    def only(self, parts: Collection[str]) -> Profile:
+        """This profile with everything outside ``parts`` blanked.
+
+        Blanked rather than dropped, so the result is still a whole Profile and
+        a comparison against it simply has nothing to say about the rest.
+        """
+        empty = Profile()
+        return self.model_copy(
+            update={
+                name: getattr(self if name in parts else empty, name)
+                for name in self.PARTS
+            },
+            deep=True,
+        )
 
     def violations(self) -> list[Violation]:
         """Every field longer than LinkedIn will accept.

@@ -11,6 +11,7 @@ import pytest
 from cvme.linkedin import audit as audit_module
 from cvme.linkedin import export
 from cvme.linkedin.audit import audit, recordable
+from cvme.linkedin.live import Source
 from cvme.linkedin.model import MonthYear, Position, Profile, Skill
 from cvme.linkedin.project import to_profile
 from cvme.md.parse import parse
@@ -99,6 +100,11 @@ def write_export(root: Path, **override: list[list[str]]) -> Path:
     return root
 
 
+def _source(profile: Profile) -> Source:
+    """A source that vouches for the whole profile."""
+    return Source(profile=profile, covers=set(Profile.PARTS), label="test")
+
+
 @pytest.fixture
 def projected() -> Profile:
     return to_profile(parse(SOURCE))[0]
@@ -106,7 +112,7 @@ def projected() -> Profile:
 
 class TestExport:
     def test_a_directory_of_csvs_reads_as_a_profile(self, tmp_path: Path) -> None:
-        live = export.read(write_export(tmp_path / "e"))
+        live = export.read(write_export(tmp_path / "e")).profile
         assert live.headline == "Staff Data Engineer | Streaming platforms"
         assert [p.company for p in live.positions] == [
             "Northwind Analytics",
@@ -122,14 +128,14 @@ class TestExport:
         with zipfile.ZipFile(archive, "w") as zipped:
             for csv_file in source.glob("*.csv"):
                 zipped.write(csv_file, csv_file.name)
-        assert export.read(archive) == export.read(source)
+        assert export.read(archive).profile == export.read(source).profile
 
     def test_headers_are_matched_by_name_not_position(self, tmp_path: Path) -> None:
         shuffled = [
             ["Finished On", "Title", "Started On", "Company Name", "Description"],
             ["", "Staff Data Engineer", "Jul 2023", "Northwind Analytics", "• x"],
         ]
-        live = export.read(write_export(tmp_path / "e", Positions=shuffled))
+        live = export.read(write_export(tmp_path / "e", Positions=shuffled)).profile
         assert live.positions[0].title == "Staff Data Engineer"
         assert live.positions[0].start == MonthYear(year=2023, month=7)
 
@@ -139,7 +145,7 @@ class TestExport:
             ["Company", "Position", "Description", "Start Date", "End Date"],
             ["Northwind Analytics", "Staff Data Engineer", "• x", "Jul 2023", ""],
         ]
-        live = export.read(write_export(tmp_path / "e", Positions=renamed))
+        live = export.read(write_export(tmp_path / "e", Positions=renamed)).profile
         assert live.positions[0].company == "Northwind Analytics"
 
     def test_an_unreadable_schema_names_the_headers_it_found(
@@ -156,11 +162,11 @@ class TestExport:
         root = tmp_path / "e"
         write_export(root)
         (root / "Skills.csv").write_text("﻿Name\nPython\n", encoding="utf-8")
-        assert [s.name for s in export.read(root).skills] == ["Python"]
+        assert [s.name for s in export.read(root).profile.skills] == ["Python"]
 
     def test_blank_rows_are_skipped(self, tmp_path: Path) -> None:
         padded = [*SKILL_ROWS, [""], ["Rust"]]
-        live = export.read(write_export(tmp_path / "e", Skills=padded))
+        live = export.read(write_export(tmp_path / "e", Skills=padded)).profile
         assert [s.name for s in live.skills] == ["Python", "SQL", "Rust"]
 
     def test_a_directory_with_nothing_recognisable_is_an_error(
@@ -180,9 +186,11 @@ class TestExport:
         root.mkdir()
         with (root / "Skills.csv").open("w", newline="", encoding="utf-8") as handle:
             csv.writer(handle).writerows(SKILL_ROWS)
-        live = export.read(root)
-        assert [s.name for s in live.skills] == ["Python", "SQL"]
-        assert live.positions == []
+        source = export.read(root)
+        assert [s.name for s in source.profile.skills] == ["Python", "SQL"]
+        assert source.covers == {"skills"}, (
+            "a skills-only download must not make every position look lost"
+        )
 
 
 class TestAudit:
@@ -286,7 +294,8 @@ class TestRecordable:
         theirs = Position(title="Barista", company="Cafe", start=MonthYear(year=2016))
         kept = recordable(
             Profile(positions=[mine]),
-            Profile(positions=[mine, theirs], skills=[Skill(name="Excel")]),
+            _source(Profile(positions=[mine, theirs], skills=[Skill(name="Excel")])),
+            Profile(),
             strict=False,
         )
         assert [p.title for p in kept.positions] == ["A"]
@@ -296,11 +305,16 @@ class TestRecordable:
         mine = Position(title="A", company="B", start=MonthYear(year=2020))
         theirs = Position(title="Barista", company="Cafe", start=MonthYear(year=2016))
         live = Profile(positions=[mine, theirs])
-        assert recordable(Profile(positions=[mine]), live, strict=True) == live
+        assert (
+            recordable(Profile(positions=[mine]), _source(live), Profile(), strict=True)
+            == live
+        )
 
     def test_scalars_are_taken_from_the_export_either_way(self) -> None:
         live = Profile(headline="What LinkedIn says", summary="Also what it says")
-        kept = recordable(Profile(headline="What I wrote"), live, strict=False)
+        kept = recordable(
+            Profile(headline="What I wrote"), _source(live), Profile(), strict=False
+        )
         assert kept.headline == "What LinkedIn says"
         assert kept.summary == "Also what it says"
 

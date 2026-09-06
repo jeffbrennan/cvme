@@ -44,6 +44,12 @@ _MONTHS = {
     "dec": 12, "december": 12,
 }  # fmt: skip
 
+#: The month spellings above, as an alternation, longest first so "sept"
+#: cannot be matched as "sep" with a stray "t" left over. Exported because
+#: a caller hunting a date in running text must not treat any word before a
+#: year as a month: "Master of Science 2020" names no month.
+MONTH_PATTERN = "|".join(sorted(_MONTHS, key=len, reverse=True))
+
 _MONTH_YEAR = re.compile(r"^([A-Za-z]+)\.?\s+(\d{4})$")
 _YEAR_MONTH = re.compile(r"^(\d{4})[/-](\d{1,2})$")
 _YEAR = re.compile(r"^(\d{4})$")

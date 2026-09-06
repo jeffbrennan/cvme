@@ -26,8 +26,8 @@ import zipfile
 from collections.abc import Iterator
 from pathlib import Path
 
-from cvme.errors import CvmeError
 from cvme.linkedin.dates import parse_point
+from cvme.linkedin.live import Source, SourceError
 from cvme.linkedin.model import Education, Position, Profile, Skill
 
 #: Archive member -> the profile part it fills. Matched on the filename stem,
@@ -72,11 +72,22 @@ REQUIRED = {
 }
 
 
-class ExportError(CvmeError):
-    exit_code = 10
+#: Which archive member vouches for which part of a profile. A download of
+#: Skills alone is a valid thing to have, and must not make every position
+#: look as though LinkedIn had lost it.
+COVERS: dict[str, tuple[str, ...]] = {
+    "profile": ("headline", "summary"),
+    "positions": ("positions",),
+    "education": ("educations",),
+    "skills": ("skills",),
+}
+
+#: Kept as a name because it is what callers catch; the ladder in ``live``
+#: raises the same class for every source.
+ExportError = SourceError
 
 
-def read(path: Path) -> Profile:
+def read(path: Path) -> Source:
     """The live profile, from an export ZIP or an unpacked directory."""
     tables = _tables(path)
     if not tables:
@@ -87,10 +98,10 @@ def read(path: Path) -> Profile:
         )
 
     profile = Profile()
-    if rows := tables.get("profile"):
-        pick = _picker("profile", rows[0])
-        profile.headline = pick(rows[0], "headline")
-        profile.summary = pick(rows[0], "summary")
+    for row, pick in _each("profile", tables):
+        profile.headline = pick(row, "headline")
+        profile.summary = pick(row, "summary")
+        break  # one member, one row
     profile.positions = [_position(r, p) for r, p in _each("positions", tables)]
     profile.educations = [_education(r, p) for r, p in _each("education", tables)]
     profile.skills = [
@@ -98,7 +109,11 @@ def read(path: Path) -> Profile:
         for row, pick in _each("skills", tables)
         if (name := pick(row, "name"))
     ]
-    return profile
+    return Source(
+        profile=profile,
+        covers={part for name in tables for part in COVERS[name]},
+        label=f"data export ({path.name})",
+    )
 
 
 def _each(
@@ -172,8 +187,10 @@ def _tables(path: Path) -> dict[str, list[dict[str, str]]]:
     """Every recognised CSV in the archive, as rows of strings."""
     if not path.exists():
         raise ExportError(f"{path}: no such file or directory")
-    sources = _from_zip(path) if zipfile.is_zipfile(path) else _from_dir(path)
-    return {name: rows for name, rows in sources.items() if rows}
+    # Empty tables are kept. A Skills.csv holding nothing but its header is
+    # LinkedIn saying you have no skills, which is a fact to audit against;
+    # dropping it would make that indistinguishable from not downloading it.
+    return _from_zip(path) if zipfile.is_zipfile(path) else _from_dir(path)
 
 
 def _from_zip(path: Path) -> dict[str, list[dict[str, str]]]:

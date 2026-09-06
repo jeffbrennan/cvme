@@ -224,3 +224,19 @@ def test_check_reports_an_unreadable_export_plainly(project: Path) -> None:
     assert result.exit_code == 10
     # Matched past the wrap: rich hard-wraps the message to the terminal width.
     assert "such file or directory" in result.output
+    assert "Save to PDF" in result.output, "the error names both ways to get one"
+
+
+def test_check_says_what_the_source_could_not_vouch_for(audited: Path) -> None:
+    write_export(audited / "export")
+    result = run(audited, "check", str(audited / "export"))
+    assert result.exit_code == 0, result.output
+    assert "not checked" not in result.output, "a full export vouches for all of it"
+
+
+def test_check_show_prints_what_was_read_and_stops(audited: Path) -> None:
+    write_export(audited / "export")
+    result = run(audited, "check", str(audited / "export"), "--show")
+    assert result.exit_code == 0, result.output
+    assert '"headline"' in result.output
+    assert "matches your documents" not in result.output, "--show does not audit"

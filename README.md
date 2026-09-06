@@ -40,7 +40,7 @@ Under construction, milestone by milestone. See
 | M8 — `cvme ats`: check the rendered PDF the way a parser reads it | done |
 | M9 — `cvme prep` and `cvme apps`: one directory per posting, tracked | done |
 | M10 — pay and work-life read from the posting, sortable in `cvme apps` | done |
-| M11 — `cvme linkedin`: one-way sync, audited against the data export | done; applied by paste, since LinkedIn's write API is partner-only |
+| M11 — `cvme linkedin`: one-way sync, audited against the live profile | done; applied by paste, since LinkedIn's write API is partner-only |
 
 ## Design
 
@@ -570,19 +570,33 @@ cvme linkedin status
 
 Because the paste is manual, `cvme linkedin check` audits the result against
 what LinkedIn actually holds and exits non-zero on drift, so it works as a CI
-or cron check. The profile is read from the data export any member can
-download -- Settings & Privacy > Data Privacy > Get a copy of your data --
-since the API's read scopes are as partner-gated as its write ones.
+or cron check.
 
 ```bash
-cvme linkedin check ~/Downloads/Basic_LinkedInDataExport.zip
-cvme linkedin check ./export --record   # record what LinkedIn says, not what you intended
+cvme linkedin check ~/Downloads/Profile.pdf   # More > Save to PDF: one click
+cvme linkedin check ~/Downloads/export.zip    # the data export: slower, complete
+cvme linkedin check <source> --record         # record what LinkedIn says
+cvme linkedin check <source> --show           # print what cvme read, and stop
 ```
+
+The quick way is your profile's own **More > Save to PDF**, which downloads
+immediately; cvme already reads PDF resumes, so it is the `cvme convert`
+pipeline pointed at a different document. The data export (Settings & Privacy
+> Data Privacy > Get a copy of your data) takes a few minutes and is the one
+that can vouch for your skills list -- the PDF prints only "Top Skills", so it
+declines to check them and says so rather than reporting the rest as missing.
 
 Findings are `missing` (in your documents, not on LinkedIn), `stale` (on
 LinkedIn, out of date) or `extra` (on LinkedIn, not in your documents). The
 first two fail; `extra` only fails under `--strict`, because a resume drops an
 old job for space and the profile keeping it is not drift.
+
+**Not fetching the public page is a choice, not a gap.** LinkedIn's user
+agreement forbids automated access, and *hiQ Labs v. LinkedIn* ended in 2022
+with a $500,000 judgment against hiQ for breaching it and an injunction to
+delete what it had taken -- the well-known ruling that scraping public pages is
+not a *CFAA* crime left the contract claim untouched, and LinkedIn won that
+one.
 
 The changeset is a file you paste from: every changed field, in the order
 LinkedIn's editor presents them, with the new text in a fenced block and where

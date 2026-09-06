@@ -17,8 +17,7 @@ import typer
 from cvme.cli.errors import err_console, handled
 from cvme.config import Config, find_config, load_config
 from cvme.errors import ConfigError
-from cvme.linkedin import audit, review, sync
-from cvme.linkedin import export as export_reader
+from cvme.linkedin import audit, live, review, sync
 from cvme.linkedin import state as sync_state
 from cvme.linkedin.sync import Plan
 
@@ -123,10 +122,11 @@ def sync_(
 @app.command()
 @handled
 def check(
-    export: Annotated[
+    profile: Annotated[
         Path,
         typer.Argument(
-            help="The LinkedIn data export ZIP, or a directory of its CSVs."
+            help="Your profile PDF (More > Save to PDF), or a data export "
+            "ZIP/directory."
         ),
     ],
     strict: Annotated[
@@ -137,7 +137,11 @@ def check(
     ] = False,
     record_now: Annotated[
         bool,
-        typer.Option("--record", help="Record the exported profile as the live state."),
+        typer.Option("--record", help="Record the profile you read as the live state."),
+    ] = False,
+    show: Annotated[
+        bool,
+        typer.Option("--show", help="Print what cvme read from the source, and stop."),
     ] = False,
     config_path: Annotated[
         Path | None, typer.Option("--config", help="Path to cvme.toml.")
@@ -145,25 +149,45 @@ def check(
 ) -> None:
     """Check the live profile against the source documents, and fail on drift.
 
-    Get the export from Settings & Privacy > Data Privacy > Get a copy of your
-    data. It is the only first-party way to read the profile back: the read
-    scopes are as partner-gated as the write ones.
+    Quickest: your profile > More > Save to PDF, then point this at it. The
+    data export (Settings & Privacy > Data Privacy > Get a copy of your data)
+    takes a few minutes and is the one that can vouch for your skills list.
+
+    Neither is optional politeness: reading a profile back over HTTP is
+    forbidden by LinkedIn's user agreement, and the API's read scopes are as
+    partner-gated as its write ones.
     """
     config = _config(config_path)
+    source = live.read(profile)
+    typer.echo(f"read {source.label}")
+
+    if show:
+        typer.echo(source.profile.model_dump_json(indent=2, exclude_defaults=True))
+        return
+
     plan = sync.build(config)
-    result = audit.audit(plan.profile, export_reader.read(export))
+    result = audit.audit(plan.profile, source)
 
     for line in result.lines():
         typer.echo(line)
     typer.echo(result.summary())
+    if source.unchecked:
+        # Said every time, not just on failure: a clean run against a source
+        # that never looked at your skills is not a clean profile.
+        typer.echo(
+            f"not checked  {', '.join(source.unchecked)} (this source "
+            "does not report them in full)"
+        )
 
     if record_now:
-        # What LinkedIn holds, not what cvme projected: recording the export
+        # What LinkedIn holds, not what cvme projected: recording the source
         # leaves whatever has not been applied still outstanding, which is the
         # point of grounding the state in evidence rather than in a promise.
-        keep = audit.recordable(plan.profile, result.live, strict=strict)
+        keep = audit.recordable(
+            plan.profile, source, sync_state.load(config.root).profile, strict=strict
+        )
         path = sync_state.save(config.root, keep)
-        typer.echo(f"recorded the exported profile to {path}")
+        typer.echo(f"recorded the profile you read to {path}")
 
     _warn(plan)
     if result.failed(strict=strict):

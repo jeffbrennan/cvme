@@ -28,6 +28,7 @@ from pydantic import BaseModel, Field
 
 from cvme.errors import CvmeError
 from cvme.linkedin.diff import Change, diff
+from cvme.linkedin.live import Source
 from cvme.linkedin.model import Profile
 
 Severity = Literal["missing", "stale", "extra"]
@@ -74,8 +75,10 @@ class Audit(BaseModel):
     """Everything the export and the documents disagree about."""
 
     findings: list[Finding] = Field(default_factory=list)
-    #: The profile as LinkedIn reports it, kept so a caller can record it.
+    #: The profile as the source reports it, kept so a caller can record it.
     live: Profile = Field(default_factory=Profile)
+    #: Where it came from, and what it could vouch for.
+    source: Source = Field(default_factory=lambda: Source(profile=Profile()))
 
     def of(self, *severities: Severity) -> list[Finding]:
         return [f for f in self.findings if f.severity in severities]
@@ -114,21 +117,30 @@ class Audit(BaseModel):
         return ", ".join(counts)
 
 
-def audit(projected: Profile, live: Profile) -> Audit:
-    """Compare the documents against what LinkedIn says it holds.
+def audit(projected: Profile, source: Source) -> Audit:
+    """Compare the documents against what the source says LinkedIn holds.
+
+    Restricted to the parts the source vouches for. A profile PDF prints three
+    "Top Skills" and a partial export may hold one table; comparing against
+    what such a source never reported would call the whole of it missing,
+    which is a fact about the source dressed up as drift in the profile.
 
     A ``set`` change where LinkedIn holds nothing at all is a missing field
     rather than a stale one: "your headline is out of date" reads badly when
     there is no headline.
     """
+    mine = projected.only(source.covers)
+    theirs = source.profile.only(source.covers)
     findings = [
         Finding(severity=_severity(change), change=change)
-        for change in diff(projected, live).changes
+        for change in diff(mine, theirs).changes
     ]
-    return Audit(findings=findings, live=live)
+    return Audit(findings=findings, live=source.profile, source=source)
 
 
-def recordable(projected: Profile, live: Profile, *, strict: bool) -> Profile:
+def recordable(
+    projected: Profile, source: Source, previous: Profile, *, strict: bool
+) -> Profile:
     """The live profile, reduced to the part cvme should consider its own.
 
     An export carries entries cvme never put there -- the job the resume drops
@@ -140,16 +152,30 @@ def recordable(projected: Profile, live: Profile, *, strict: bool) -> Profile:
 
     ``--strict`` means the profile should be exactly the documents, so there
     the extras are kept and the next changeset does say to remove them.
+
+    Parts the source could not vouch for keep whatever was already recorded.
+    A profile PDF says nothing about your skills, and letting it blank them
+    would turn "this source does not list skills" into "LinkedIn has none of
+    your skills" the moment it was written down.
     """
-    if strict:
-        return live
-    mine = {entity.key for entity in (*projected.positions, *projected.educations)}
-    skills = {skill.key for skill in projected.skills}
-    return live.model_copy(
+    live = source.profile
+    if not strict:
+        mine = {entity.key for entity in (*projected.positions, *projected.educations)}
+        skills = {skill.key for skill in projected.skills}
+        live = live.model_copy(
+            update={
+                "positions": [p for p in live.positions if p.key in mine],
+                "educations": [e for e in live.educations if e.key in mine],
+                "skills": [s for s in live.skills if s.key in skills],
+            },
+            deep=True,
+        )
+    kept = live.only(source.covers)
+    return kept.model_copy(
         update={
-            "positions": [p for p in live.positions if p.key in mine],
-            "educations": [e for e in live.educations if e.key in mine],
-            "skills": [s for s in live.skills if s.key in skills],
+            part: getattr(previous, part)
+            for part in Profile.PARTS
+            if part not in source.covers
         },
         deep=True,
     )

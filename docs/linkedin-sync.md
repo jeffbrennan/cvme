@@ -56,23 +56,46 @@ update position 'Staff Data Engineer @ Northwind Analytics'
 `record` on its own is a promise: you telling cvme the paste happened. `check`
 is evidence.
 
-There is no API to read the profile back — the Profile API's read scopes are
-as partner-gated as its write ones, and scraping the page is blocked and
-against the terms. What every member can get, without permission from anyone,
-is their own data:
-
-> Settings & Privacy → Data Privacy → **Get a copy of your data** →
-> Profile, Positions, Education, Skills
-
-The basic categories arrive by email within minutes as a ZIP of CSVs.
-
 ```bash
-cvme linkedin check ~/Downloads/Basic_LinkedInDataExport.zip
-cvme linkedin check ./unpacked-export --record
+cvme linkedin check ~/Downloads/Profile.pdf     # one click to produce
+cvme linkedin check ~/Downloads/export.zip      # a few minutes, complete
+cvme linkedin check <source> --show             # print what cvme read, and stop
 ```
 
-It exits non-zero on drift, so it works as a CI or cron check. Findings come
-in three kinds:
+It exits non-zero on drift, so it works as a CI or cron check.
+
+### Where the profile comes from
+
+| Source | How | Effort | Reports |
+|---|---|---|---|
+| **Profile PDF** | Your profile → More → **Save to PDF** | one click, immediate | headline, About, roles, degrees |
+| **Data export** | Settings & Privacy → Data Privacy → **Get a copy of your data** | emailed in minutes | all of it, including skills |
+
+The PDF is the one to reach for. cvme already reads PDF resumes -- that is what
+`cvme convert` does -- and a profile PDF is resume-shaped, so the whole path is
+the existing pipeline pointed at a different document:
+
+```
+PDF ──convert──▶ markdown ──parse──▶ document IR ──project──▶ Profile
+```
+
+### Why not just fetch the public profile page
+
+Because it is forbidden, not because it is hard.
+
+LinkedIn's user agreement prohibits automated access, and *hiQ Labs v.
+LinkedIn* settled that in 2022: a **$500,000 judgment against hiQ for breach of
+that agreement**, plus a permanent injunction to stop scraping and delete
+everything it had taken. The widely-quoted ruling in that case — that scraping
+public pages is not a *CFAA* crime — left the contract claim untouched, and
+LinkedIn won it. In practice logged-out profile views are also gated, reduced,
+and served behind an auth wall from anything that looks automated.
+
+This project already takes that position for job capture (`jobs/sources.py`
+reports what it cannot reach rather than bypassing it), and the same reasoning
+applies here.
+
+### Findings
 
 | Finding | Means | Fails |
 |---|---|---|
@@ -86,22 +109,48 @@ resume drops an old job for space and the profile keeping it is correct;
 endorsed skills you would not claim in print are the same story. `--strict` is
 for anyone who wants the profile to be exactly the document.
 
-`--record` writes the *exported* profile as the state, so whatever you have
-not applied yet stays outstanding and the next `sync` is exactly the remainder.
-Entries cvme does not manage are left out of that record, so a job you meant to
-keep never becomes a standing instruction to delete it — unless you pass
-`--strict`, which means you do want it gone.
-
 ```
-$ cvme linkedin check export
-stale   headline
+$ cvme linkedin check ~/Downloads/Profile.pdf
+read profile PDF (Profile.pdf)
+stale   position 'Staff Data Engineer @ Northwind Analytics'
 missing position 'Data Engineer @ GreyHarbor Health'
-extra   position 'Barista @ Harbor Coffee'
-missing skills: dagster, polars, pytest
-2 missing, 1 stale, 1 extra
+1 missing, 1 stale
+not checked  skills (this source does not report them in full)
 ```
 
-The archive's columns are read by name through an alias table, not by
+### What a source will not vouch for
+
+Every source declares which parts of a profile it actually reports, and the
+audit compares only those. A profile PDF prints a "Top Skills" section holding
+about three of them, so a profile with thirty skills would otherwise audit as
+twenty-seven missing — a fact about the PDF dressed up as drift in your
+profile. So the PDF does not vouch for skills, `check` says so on every run,
+and the export is what you use when the skills list is the thing you want
+checked.
+
+The same applies to a partial download: an export of Skills alone checks
+skills and says nothing about your positions. A table that is present but
+empty is different, and does count — a `Skills.csv` holding only its header is
+LinkedIn saying you have no skills.
+
+### Recording from a check
+
+`--record` writes the profile it read as the state, so whatever you have not
+applied yet stays outstanding and the next `sync` is exactly the remainder.
+
+Two things it deliberately does not do. Entries cvme does not manage are left
+out, so a job you meant to keep never becomes a standing instruction to delete
+it — unless you pass `--strict`, which means you do want it gone. And parts the
+source could not see keep whatever was already recorded, so checking with a PDF
+does not blank the skills a previous export established.
+
+### If the read looks wrong
+
+`--show` prints the profile cvme recovered from the source and stops, which is
+the fastest way to tell a real drift from a parsing problem. For a PDF,
+`cvme convert <file> --stdout` shows the markdown underneath it.
+
+The export archive's columns are read by name through an alias table, not by
 position, because LinkedIn publishes no schema for it and has renamed these
 before. A file whose columns cannot be understood is an error that names the
 headers actually found.
@@ -111,15 +160,15 @@ headers actually found.
 ```bash
 cvme linkedin diff       # what has changed since the last recorded sync
 cvme linkedin sync       # write out/linkedin-changeset.md
-cvme linkedin check E    # audit against a data export; non-zero on drift
+cvme linkedin check SRC  # audit against a profile PDF or export; fails on drift
 cvme linkedin record     # mark the current documents as applied
 cvme linkedin status     # sources, and what is outstanding
 cvme linkedin reset      # forget the state; offer the whole profile again
 ```
 
 `sync --record` records as it writes, for when you paste as you go. Prefer
-`check --record` when you have an export: it records what LinkedIn says rather
-than what you intended.
+`check --record`: it records what LinkedIn says rather than what you intended,
+and a profile PDF is one click away.
 
 ## Design
 
@@ -129,7 +178,7 @@ base.md ──parse──┐
 linkedin.md ─────┘                                      ▲    └─diff──▶ audit
    (optional)                                           │           ▲
                                              last recorded state    │
-                                      LinkedIn data export ─read────┘
+                              profile PDF / data export ──read──────┘
 ```
 
 The audit is the same comparison read the other way round. Diffing the
@@ -188,6 +237,13 @@ comparing the same thing.
 A lone date on a degree line is a graduation, so it becomes the *end* date. On
 a position a lone date means you started then and are there still. Reading the
 degree the same way would put "2020 – Present" on a master's you finished.
+
+Reading a degree back out of a PDF needs the same rule in reverse. A PDF has no
+paragraphs, so the degree beneath a school heading arrives as loose prose with
+the award date buried in it, sometimes with the next line run onto the end. The
+PDF reader splits that line at the first real month-year — real, because "Master
+of Science 2020" names no month and a looser pattern would eat the word before
+the year.
 
 Skills read the way a resume writes them. `Python (advanced)` is the skill
 `Python`: the bracket qualifies it. `Orchestration (airflow, dagster)` is

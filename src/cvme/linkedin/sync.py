@@ -11,7 +11,6 @@ already handed you five to paste, one of which was about to be rejected.
 
 from __future__ import annotations
 
-from collections.abc import Collection
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -27,15 +26,6 @@ from cvme.md.parse import parse_file
 #: Default name for the long-form overlay, looked for beside the source
 #: document. Configuring it is possible and, at this name, unnecessary.
 OVERLAY_NAME = "linkedin.md"
-
-#: Config field name -> the profile attribute it governs.
-_FIELDS = {
-    "headline": "headline",
-    "summary": "summary",
-    "positions": "positions",
-    "educations": "educations",
-    "skills": "skills",
-}
 
 
 @dataclass
@@ -67,8 +57,11 @@ def build(config: Config) -> Plan:
     profile, unmapped = to_profile(merged)
 
     wanted = set(config.linkedin.fields)
-    current = _restrict(profile, wanted)
-    previous = _restrict(sync_state.load(config.root).profile, wanted)
+    # Blanked on both sides of the diff rather than filtered out of it, so a
+    # field dropped from `[linkedin] fields` stops producing changes instead of
+    # producing one last removal of everything in it.
+    current = profile.only(wanted)
+    previous = sync_state.load(config.root).profile.only(wanted)
     return Plan(
         profile=current,
         changeset=diff(current, previous),
@@ -92,23 +85,6 @@ def _overlay_path(config: Config, source: Path) -> Path | None:
         return configured
     beside = source.parent / OVERLAY_NAME
     return beside if beside.is_file() else None
-
-
-def _restrict(profile: Profile, wanted: Collection[str]) -> Profile:
-    """Blank whatever the config does not want cvme to own.
-
-    Blanked on both sides of the diff rather than filtered out of it, so a
-    field removed from ``[linkedin] fields`` stops producing changes instead
-    of producing one last removal of everything in it.
-    """
-    empty = Profile()
-    return profile.model_copy(
-        update={
-            attribute: getattr(empty if name not in wanted else profile, attribute)
-            for name, attribute in _FIELDS.items()
-        },
-        deep=True,
-    )
 
 
 def record(config: Config, plan: Plan) -> Path:

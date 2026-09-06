@@ -971,3 +971,57 @@ fixture showed the projection reading a graduation date as the *start* of a
 degree, which would have put "2020 - Present" on a finished master's. A lone
 date is a start on a position and an end on an education, and nothing but a
 round trip through real data was going to surface that.
+
+### 16.6 Getting the profile back without an export
+
+The data export is complete and arrives by email in minutes, and a check you
+have to wait for is a check you stop running. So `check` takes a source ladder
+rather than one file, ordered by what it costs the author rather than by what
+it returns:
+
+| Source | Effort | Reports |
+|---|---|---|
+| Profile PDF (More > Save to PDF) | one click | headline, About, roles, degrees |
+| Data export (CSV/ZIP) | a few minutes | all of it, including skills |
+
+The PDF path is almost no new code. `cvme convert` already recovers a resume
+from a PDF by geometry, and a profile PDF is resume-shaped, so the path is the
+existing pipeline pointed at a different document. What it needed was one
+repair: a PDF has no paragraphs, so the degree beneath a school heading arrives
+as loose prose with the award date inside it, and sometimes with the following
+note run onto the end. The reader splits that line at the first real month-year
+-- real, because a looser pattern reads "Master of Science 2020" as naming the
+month "Science".
+
+Fetching `linkedin.com/in/...` is absent for a reason worth writing down, since
+it is the first thing anyone proposes. LinkedIn's user agreement forbids
+automated access, and *hiQ Labs v. LinkedIn* closed in 2022 with a $500,000
+judgment against hiQ for breaching it and a permanent injunction to stop and
+delete what it had taken. The much-quoted holding from that case -- that
+scraping public pages is not a CFAA violation -- was about the criminal statute
+and left the contract claim standing, which LinkedIn then won. `jobs/sources.py`
+already records the same judgement for job pages.
+
+#### Coverage, so a partial source cannot invent drift
+
+A source that reports part of a profile must not be compared against the rest.
+A profile PDF prints three "Top Skills", and an author who downloaded only
+Skills.csv has no positions in hand; comparing against either would report the
+whole of the absent part as missing, which is a fact about the source dressed
+up as drift in the profile.
+
+So every source declares which of `Profile.PARTS` it vouches for, the audit
+restricts both sides to that set, and `check` prints what went unchecked on
+every run -- including clean ones, because a clean result from a source that
+never looked at your skills is not a clean profile.
+
+Coverage is evidence-based rather than assumed. The PDF reader claims education
+only once it has actually recovered a degree for every entry, and the export
+reader claims a part only if the archive carried that table. A table that is
+present but empty still counts: a `Skills.csv` holding nothing but its header is
+LinkedIn saying you have no skills, and dropping it would make that
+indistinguishable from not having downloaded it.
+
+Recording follows the same rule. `check --record` writes what the source saw,
+and keeps the previously recorded value for whatever it could not see, so
+checking with a PDF does not blank the skills a previous export established.
