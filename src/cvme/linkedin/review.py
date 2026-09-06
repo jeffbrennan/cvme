@@ -1,10 +1,13 @@
-"""The review transport: a changeset written for a person to apply.
+"""The changeset: what to change on the profile, written for a person.
 
-This is the default, and for almost everyone it is the only transport that
-will run. LinkedIn's Profile Edit API is partner-gated, so the realistic shape
-of "keep my profile in step with base.md" is not an automated push. It is
-knowing exactly which four fields drifted since the last time you looked, and
-having the new text ready to paste rather than re-typed from a PDF.
+LinkedIn's Profile Edit API is partner-gated, so the realistic shape of "keep
+my profile in step with base.md" is not an automated push. It is knowing
+exactly which fields drifted since the last time you looked, and having the
+new text ready to paste rather than re-typed from a PDF.
+
+The first run lists everything, because cvme has not recorded a profile yet.
+After ``cvme linkedin record`` it lists only what changed, which is usually
+one field or none.
 
 So the file is written to be worked through top to bottom and thrown away: one
 section per edit, in the order LinkedIn's own editor presents them, with the

@@ -171,13 +171,13 @@ class TestPlan:
     def test_recording_makes_the_next_plan_empty(self, project: Config) -> None:
         first = sync.build(project)
         assert first.changeset
-        sync.record(project, first, transport="manual", ids={})
+        sync.record(project, first)
         assert not sync.build(project).changeset
 
     def test_an_edit_after_recording_shows_only_that_edit(
         self, project: Config
     ) -> None:
-        sync.record(project, sync.build(project), transport="manual", ids={})
+        sync.record(project, sync.build(project))
         source = project.root / "base" / "resume.md"
         source.write_text(BASE.replace("One bullet", "One better bullet"), "utf-8")
         (change,) = sync.build(project).changeset.changes
@@ -209,15 +209,13 @@ class TestState:
 
     def test_saving_round_trips(self, tmp_path: Path) -> None:
         profile = Profile(headline="Staff Data Engineer")
-        sync_state.save(tmp_path, profile, transport="api", remote_ids={"k": "123"})
+        sync_state.save(tmp_path, profile)
         state = sync_state.load(tmp_path)
         assert state.profile == profile
-        assert state.transport == "api"
-        assert state.remote_ids == {"k": "123"}
         assert state.recorded
 
     def test_clearing_forgets_it(self, tmp_path: Path) -> None:
-        sync_state.save(tmp_path, Profile(), transport="manual")
+        sync_state.save(tmp_path, Profile())
         assert sync_state.clear(tmp_path)
         assert not sync_state.clear(tmp_path), "clearing twice is not an error"
         assert not sync_state.load(tmp_path).recorded

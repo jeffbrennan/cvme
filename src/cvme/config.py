@@ -128,13 +128,11 @@ class LinkedInConfig(BaseModel):
     #: beside the source document when that file exists, so the feature needs
     #: no configuration to start using.
     overlay: Path | None = None
-    #: Where `--transport review` writes the changeset, under `output_dir`.
+    #: Where the changeset is written, under `output_dir`.
     changeset: Path = Path("linkedin-changeset.md")
     #: Which parts of the profile cvme is allowed to write. Narrow it to keep
     #: a section that is curated on LinkedIn out of the sync.
     fields: list[SyncField] = Field(default_factory=lambda: list(get_args(SyncField)))
-    #: The locale the API wraps text fields in.
-    locale: str = "en_US"
 
 
 class SearchSourceConfig(BaseModel):

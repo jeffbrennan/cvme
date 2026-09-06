@@ -1,12 +1,12 @@
 """Reading the sources, planning the sync, and applying it.
 
 The CLI stays thin: it parses flags and prints. Everything between the files
-on disk and the transport lives here, so a plan can be built and asserted on
+on disk and the changeset lives here, so a plan can be built and asserted on
 without a terminal.
 
-The plan is built before anything is applied, always, including for the API
-transport. A sync that discovered halfway through that the sixth position is
-over the description limit would have already written five.
+The plan is complete before anything is written. A run that discovered halfway
+through that the sixth position is over the description limit would have
+already handed you five to paste, one of which was about to be rejected.
 """
 
 from __future__ import annotations
@@ -18,9 +18,8 @@ from pathlib import Path
 from cvme.config import Config
 from cvme.errors import ConfigError
 from cvme.linkedin import state as sync_state
-from cvme.linkedin.client import Client, Kind
 from cvme.linkedin.diff import Changeset, diff
-from cvme.linkedin.model import Education, Position, Profile, Skill, Violation
+from cvme.linkedin.model import Profile, Violation
 from cvme.linkedin.overlay import merge
 from cvme.linkedin.project import to_profile
 from cvme.md.parse import parse_file
@@ -36,12 +35,6 @@ _FIELDS = {
     "positions": "positions",
     "educations": "educations",
     "skills": "skills",
-}
-
-_KINDS: dict[str, Kind] = {
-    "position": "position",
-    "education": "education",
-    "skill": "skill",
 }
 
 
@@ -118,48 +111,11 @@ def _restrict(profile: Profile, wanted: Collection[str]) -> Profile:
     )
 
 
-def apply_api(plan: Plan, client: Client, known_ids: dict[str, str]) -> dict[str, str]:
-    """Push the changeset, returning the entity ids to record.
+def record(config: Config, plan: Plan) -> Path:
+    """Record the planned profile as the one now on LinkedIn.
 
-    Applied in the changeset's own order, which puts removals last so an
-    entity is never deleted before a change that still referred to it.
+    Separate from writing the changeset because cvme cannot see the profile:
+    only you know whether the file was pasted in, and claiming otherwise would
+    make every later diff wrong.
     """
-    remote_ids = dict(known_ids)
-    scalars: dict[str, str] = {
-        change.kind: change.after for change in plan.changeset.of("headline", "summary")
-    }
-    client.set_person_fields(scalars)
-
-    by_key = _entities(plan.profile)
-    for change in plan.changeset.of("position", "education", "skill"):
-        kind = _KINDS[change.kind]
-        match change.action:
-            case "add":
-                remote_ids[change.key] = client.create(kind, by_key[change.key])
-            case "update":
-                # An entity cvme has never created through the API has no id to
-                # patch, which is the normal case the first time the API is
-                # used on a profile that was filled in by hand.
-                if (remote := remote_ids.get(change.key)) is None:
-                    remote_ids[change.key] = client.create(kind, by_key[change.key])
-                else:
-                    client.update(kind, remote, by_key[change.key])
-            case "remove":
-                if (remote := remote_ids.pop(change.key, None)) is not None:
-                    client.delete(kind, remote)
-    return remote_ids
-
-
-def _entities(profile: Profile) -> dict[str, Position | Education | Skill]:
-    entities: list[Position | Education | Skill] = [
-        *profile.positions,
-        *profile.educations,
-        *profile.skills,
-    ]
-    return {entity.key: entity for entity in entities}
-
-
-def record(config: Config, plan: Plan, *, transport: str, ids: dict[str, str]) -> Path:
-    return sync_state.save(
-        config.root, plan.profile, transport=transport, remote_ids=ids
-    )
+    return sync_state.save(config.root, plan.profile)

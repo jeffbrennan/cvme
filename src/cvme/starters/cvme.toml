@@ -63,7 +63,7 @@ document = "resume"
 # Which parts of the profile cvme is allowed to write. Drop one to keep a
 # section you curate on LinkedIn out of the sync.
 fields = ["headline", "summary", "positions", "educations", "skills"]
-# Where `--transport review` writes the changeset, under output_dir.
+# Where the changeset is written, under output_dir.
 changeset = "linkedin-changeset.md"
 
 [generate]

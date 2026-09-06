@@ -5,57 +5,68 @@ LinkedIn profile is a second copy of the same claims, maintained by hand, in a
 web form, and it drifts the moment the resume changes. This feature makes the
 profile a projection of the document instead.
 
-## What LinkedIn actually allows
+The sync is one-way and the last step is manual: cvme writes a changeset and
+you paste it in. That is not a shortcut, it is the ceiling — see below.
 
-Read this before designing anything around the API.
+## Why there is no API push
 
-The **Profile Edit API** is real and documented. It creates, updates and
-deletes positions, educations, skills, certifications and the rest, under
-`/v2/people/id={person}/…`. It is also **restricted to developers LinkedIn has
-approved through a partner programme**.
+LinkedIn's **Profile Edit API** is real and documented. It creates, updates and
+deletes positions, educations and skills under `/v2/people/id={person}/…`. It
+is also **restricted to developers LinkedIn has approved through a partner
+programme**.
 
-What a self-serve developer app can get today is:
+What a self-serve developer app can get is:
 
 | Product | Scopes | What it does |
 |---|---|---|
 | Sign In with LinkedIn (OpenID Connect) | `openid`, `profile`, `email` | Name, headline, picture, email. Read-only. |
 | Share on LinkedIn | `w_member_social` | Post to the feed. |
 
-None of those writes a profile section. So for almost everyone, a fully
-automated push does not exist — not because it is hard, because LinkedIn does
-not sell it. Anyone claiming otherwise is either a partner or driving a browser
-against LinkedIn's terms of use.
+None of those writes a profile section. So an automated push is not a hard
+problem, it is a product LinkedIn does not sell to individual developers.
+Anyone offering it is either a partner or driving a browser against LinkedIn's
+terms of use, which this project will not do — the same judgement is already
+recorded for job capture in `jobs/sources.py`.
 
-cvme therefore ships two transports and defaults to the one that works.
+cvme therefore does the part that is actually hard, which is knowing *what
+changed*, and leaves the twenty seconds of pasting to you.
 
-## The two transports
+## How much pasting
 
-### `--transport review` (default)
+The first run lists everything, because cvme has not recorded a profile yet:
+one entry per position, plus the headline, About and skills. LinkedIn's editor
+is per-entry anyway — Experience → that role → Edit is its own modal — so
+there is no tooling that would make the first pass a single paste.
 
-Writes `out/linkedin-changeset.md`: every field that has changed since the last
-recorded sync, in the order LinkedIn's own editor presents them, with the new
-text in a fenced block to copy and where in the UI to paste it.
+After `cvme linkedin record`, the changeset holds only what moved. Editing one
+bullet in `base.md` produces one position to update. That is the state you
+live in; the first run is a one-off.
 
-This needs no LinkedIn app, no OAuth, and no approval. The manual step is real,
-but it is small and bounded: not "reconcile a profile against a PDF", but
-"paste these two fields".
+```
+$ cvme linkedin diff          # after recording, and one edited bullet
+update position 'Staff Data Engineer @ Northwind Analytics'
+```
 
-### `--transport api`
+## Commands
 
-The real thing, against the documented endpoints. It will return 403 unless
-your app carries a Profile Edit permission. It is implemented so that the day
-that access arrives, the sync is a flag rather than a project — and the
-projection, the diff and the state are shared with the review transport, so
-they are exercised either way.
+```bash
+cvme linkedin diff       # what has changed since the last recorded sync
+cvme linkedin sync       # write out/linkedin-changeset.md
+cvme linkedin record     # mark the current documents as applied
+cvme linkedin status     # sources, and what is outstanding
+cvme linkedin reset      # forget the state; offer the whole profile again
+```
+
+`sync --record` does both in one step, for when you paste as you go.
 
 ## Design
 
 ```
 base.md ──parse──┐
-                 ├─merge──▶ document IR ──project──▶ Profile ──diff──▶ Changeset
-linkedin.md ─────┘                                      ▲                  │
-   (optional)                                           │           ┌──────┴──────┐
-                                             last recorded state    review      api
+                 ├─merge──▶ document IR ──project──▶ Profile ──diff──▶ changeset.md
+linkedin.md ─────┘                                      ▲
+   (optional)                                           │
+                                             last recorded state
 ```
 
 Four decisions are worth stating.
@@ -71,21 +82,19 @@ role most likely to be extended in an overlay is the one that reads "Present"
 today, and matching on it would silently append a duplicate job the day you
 left.
 
-**The diff is against what cvme last applied, not against LinkedIn.** The
-comparison that matters for a one-way sync is "what have I written since I last
-pushed". It also has to be, because reading positions back needs the same
-partner access as writing them. The state lives in `.cvme/linkedin/state.json`
-and is written only when a sync is applied, so an abandoned push leaves the
-changes outstanding.
+**The diff is against what cvme last applied.** The comparison that matters for
+a one-way sync is "what have I written since I last pushed". The state lives in
+`.cvme/linkedin/state.json` and is written only when you say a sync was
+applied, so an abandoned paste leaves the changes outstanding.
 
-For `review` that means cvme cannot know you pasted the file in, so it does not
-claim you did. `cvme linkedin record` is the confirmation, and it is a separate
-step on purpose.
+cvme cannot see your profile, so it does not claim to. `cvme linkedin record`
+is a separate step on purpose: recording a sync that never happened is the one
+lie that would make every later diff wrong.
 
 **Over-long fields are refused, not truncated.** LinkedIn's composer caps the
 headline at 220 characters, About at 2,600 and a role description at 2,000. A
 sync that quietly cut a sentence in half would put it on a public profile.
-cvme names every over-long field and stops.
+cvme names every over-long field and stops before writing anything.
 
 **Sections it cannot map are reported.** There is no LinkedIn field for a
 `Projects` section, so cvme says so rather than dropping it silently.
@@ -106,39 +115,10 @@ Skills read the way a resume writes them. `Python (advanced)` is the skill
 `airflow` and `dagster`: the bracket is a list and the label is a category.
 Whether the bracket holds a separator is what tells the two apart.
 
-## Credentials
-
-Only needed for `--transport api`.
-
-* Stored at `~/.config/cvme/linkedin.json` (or `$XDG_CONFIG_HOME/cvme/`), never
-  in the project — `cvme.toml` is committed and a client secret is not.
-* Created `0600` inside a `0700` directory, opened through `os.open` so the
-  file is never briefly world-readable. A file that other users can read is
-  **refused rather than repaired**: it may already have been read, and fixing
-  the mode would hide that.
-* `CVME_LINKEDIN_CLIENT_ID` / `_SECRET` override the file, for CI or for anyone
-  keeping the secret in a password manager.
-* The flow is the authorization code grant over a loopback redirect bound to
-  `127.0.0.1`. The `state` parameter is 32 random bytes per run, compared with
-  `secrets.compare_digest` before the code is exchanged. LinkedIn is a
-  confidential client, so there is a client secret and no PKCE to use instead.
-* Nothing prints the secret. `cvme linkedin status` shows the last four
-  characters of the client id and whether a secret and token exist.
-
-## Commands
-
-```bash
-cvme linkedin diff       # what has changed since the last recorded sync
-cvme linkedin sync       # write out/linkedin-changeset.md
-cvme linkedin record     # mark the current documents as applied
-cvme linkedin status     # credentials, sources, and what is outstanding
-cvme linkedin reset      # forget the state; offer the whole profile again
-
-cvme linkedin setup      # register a LinkedIn app, once, for --transport api
-cvme linkedin login
-cvme linkedin logout
-cvme linkedin sync --transport api
-```
+Markup does not survive: LinkedIn renders none of it, so `**bold**` would
+arrive as literal asterisks. Links keep their target — `[docs](https://x)`
+becomes `docs (https://x)` — because a URL on a profile is only reachable if
+it is written out.
 
 ## Configuration
 

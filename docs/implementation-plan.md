@@ -851,26 +851,30 @@ default, since that is the order and the subset to spend an evening in.
 and drifts the moment the resume changes. The profile becomes a projection of
 the document, and the projection is the whole of the feature's opinion, so it
 is written down in one place (`linkedin/project.py`) rather than spread through
-the transports.
+the CLI.
 
-### 16.1 The access problem, stated first
+### 16.1 The access ceiling, stated first
 
 LinkedIn's Profile Edit API exists, is documented, and is restricted to
 developers approved through a partner programme. The self-serve tier grants
 `openid`, `profile`, `email` and `w_member_social`; none writes a profile
-section. A fully automated push is therefore unavailable to almost everyone,
-and no amount of correct code changes that.
+section. An automated push is therefore unavailable, and no amount of correct
+code changes that.
 
-Two options followed from that, and both were taken. The default transport
-writes a changeset for a person to paste, which needs no LinkedIn app and works
-today. The API transport is implemented against the documented endpoints so the
-access, if it arrives, is a flag rather than a project. They share the
-projection, the diff and the state, so the shared 90% is exercised whichever
-one runs.
+An OAuth client and an API writer were built against the documented endpoints
+and then removed. They were correct and unusable, and unusable code that looks
+usable is worse than none: it invites a reader to assume the push works, and it
+carries a credential store and a loopback OAuth server as attack surface for a
+call that can only return 403. If the access ever arrives, the projection, the
+diff and the state are all still here and a writer is the small part.
 
-The option not taken was driving a logged-in browser. It violates LinkedIn's
+The option never taken was driving a logged-in browser. It violates LinkedIn's
 terms, and the same judgement is already recorded for job capture in
 `jobs/sources.py`: cvme reports what it cannot reach rather than bypassing it.
+
+What is left is the part that was actually hard. Pasting a field takes seconds;
+knowing which of forty fields moved since you last looked is the work, and that
+is what cvme does.
 
 ### 16.2 The overlay
 
@@ -894,41 +898,31 @@ A one-way sync needs a memory, and the memory cannot be LinkedIn: reading
 positions back needs the same partner access as writing them. So the last
 applied profile is recorded in `.cvme/linkedin/state.json` and the next run
 diffs against it. An edit to one bullet is then one field to update, rather
-than a whole profile to overwrite.
+than a whole profile to re-read.
 
-The state is written when a sync is applied and at no other time. For the review
-transport that means cvme cannot know the file was pasted in, so it does not
-claim so — `cvme linkedin record` is a separate step, and saying "recorded" when
-nothing was applied would be the one lie that makes every later diff wrong.
+This is what makes the manual step bounded. The first run lists everything and
+is a one-off; the steady state is zero or one changed field. Without the state
+file, every run would hand back the whole profile and the feature would be
+worth less than reading the PDF.
+
+The state is written when you say a sync was applied and at no other time.
+cvme cannot see the profile, so `cvme linkedin record` is a separate step:
+saying "recorded" when nothing was pasted is the one lie that makes every later
+diff wrong.
 
 A corrupt state file is an error rather than a silent reset, for the same
-reason: resetting would present the whole profile as new and re-push every
-field.
+reason: resetting would present the whole profile as new.
 
 ### 16.4 Limits are checked, not applied
 
 The composer caps the headline at 220 characters, About at 2,600 and a role
 description at 2,000. Truncating to fit would put a half-sentence on a public
-profile, so every over-long field is named and the sync stops. It is the same
-principle as `cvme verify`: the failure is worth more than the output.
+profile, so every over-long field is named and the run stops before writing a
+changeset. It is the same principle as `cvme verify`: the failure is worth more
+than the output.
 
-Sections with no LinkedIn field — `Projects`, say — are reported rather than
+Sections with no LinkedIn field -- `Projects`, say -- are reported rather than
 dropped, because "a third of your document was ignored" should not be something
 you discover from the profile. `## Gaps` is the exception and is dropped at the
 projection boundary, since a public profile is the worst possible destination
 for a list of your weaknesses.
-
-### 16.5 Credentials
-
-Needed only for the API transport. The rules, in the order they mattered:
-nothing secret in the project, because `cvme.toml` is committed; the filesystem
-is the boundary, so `0600` in a `0700` directory, opened through `os.open` so
-there is no window in which the file is world-readable; a file other users can
-read is refused rather than repaired, because it may already have been read and
-repairing the mode would hide that; and no secret reaches a log, an error or a
-terminal.
-
-The flow is the authorization code grant over a loopback redirect bound to
-`127.0.0.1`, with a 32-byte `state` compared using `secrets.compare_digest`.
-LinkedIn is a confidential client, so there is a client secret and no PKCE to
-use instead.

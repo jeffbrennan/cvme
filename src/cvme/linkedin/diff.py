@@ -6,10 +6,10 @@ That makes the diff the centre of the feature rather than a convenience: it is
 what turns an edit to one bullet in ``base.md`` into one field to update
 instead of a whole profile to overwrite.
 
-Changes are typed rather than textual because both consumers need the parts.
-The API transport needs the entity and the field to build a patch; the review
-transport needs the before and after to show. A unified diff would serve
-neither without being re-parsed.
+Changes are typed rather than textual because the changeset is composed from
+the parts: which entity, which of its fields moved, and the before and after
+of each. A unified diff would have to be re-parsed to say any of that, and it
+would read like a diff rather than like a list of edits to make.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ class Change(BaseModel):
     before: str = ""
     after: str = ""
     #: The one long field -- a position's or education's description -- kept
-    #: apart from the others so a transport can offer it as its own block to
+    #: apart from the others so the changeset can offer it as its own block to
     #: copy. Pasting a description with "title:" glued to the front of it is
     #: exactly the kind of small mess this file exists to avoid.
     before_body: str = ""
@@ -95,9 +95,9 @@ def _entities(
 ) -> list[Change]:
     """Match on identity, then compare field by field.
 
-    Removals come last so a reader sees what the profile gains before what it
-    loses, and so a transport that applies them in order never deletes an
-    entity a later change was going to update.
+    Removals come last so a reader working down the changeset sees what the
+    profile gains before what it loses, and never deletes an entry that a
+    later line was going to edit.
     """
     mine = {entity.key: entity for entity in current}
     theirs = {entity.key: entity for entity in previous}

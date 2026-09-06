@@ -4,15 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import httpx
 import pytest
 from typer.testing import CliRunner
 
 from cvme.cli.app import app
-from cvme.config import CONFIG_NAME, load_config
+from cvme.config import CONFIG_NAME
 from cvme.linkedin import state as sync_state
-from cvme.linkedin import sync
-from cvme.linkedin.client import Client
 
 runner = CliRunner()
 
@@ -41,13 +38,6 @@ CONFIG = """\
 [documents.resume]
 path = "base/resume.md"
 """
-
-
-@pytest.fixture(autouse=True)
-def config_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("CVME_CONFIG_HOME", str(tmp_path / "cfg"))
-    monkeypatch.delenv("CVME_LINKEDIN_CLIENT_ID", raising=False)
-    monkeypatch.delenv("CVME_LINKEDIN_CLIENT_SECRET", raising=False)
 
 
 @pytest.fixture
@@ -138,67 +128,8 @@ def test_an_unmapped_section_is_warned_about_not_silently_dropped(
 def test_status_reports_without_credentials(project: Path) -> None:
     result = run(project, "status")
     assert result.exit_code == 0, result.output
-    assert "client_secret  not set" in result.output
     assert "last sync    never" in result.output
     assert "overlay      none" in result.output
-
-
-def test_an_unknown_transport_is_rejected(project: Path) -> None:
-    result = run(project, "sync", "--transport", "carrier-pigeon")
-    assert result.exit_code != 0
-    assert "unknown transport" in result.output
-
-
-def test_the_api_transport_needs_a_login(project: Path) -> None:
-    result = run(project, "sync", "--transport", "api")
-    assert result.exit_code != 0
-    assert "not logged in" in result.output
-
-
-def test_an_api_sync_pushes_each_change_and_records_the_ids(project: Path) -> None:
-    """The whole API path, against a transport that answers like LinkedIn."""
-    calls: list[tuple[str, str]] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        calls.append((request.method, request.url.path))
-        return httpx.Response(201, headers={"x-linkedin-id": f"urn:{len(calls)}"})
-
-    config = load_config(project / CONFIG_NAME)
-    plan = sync.build(config)
-    client = Client(
-        "tok", person_id="ME", http=httpx.Client(transport=httpx.MockTransport(handler))
-    )
-    ids = sync.apply_api(plan, client, {})
-    sync.record(config, plan, transport="api", ids=ids)
-
-    assert ("POST", "/v2/people/id=ME") in calls, "headline and summary in one patch"
-    assert ("POST", "/v2/people/id=ME/positions") in calls
-    assert ("POST", "/v2/people/id=ME/skills") in calls
-    assert len(ids) == len(plan.changeset.of("position", "education", "skill"))
-    assert not sync.build(config).changeset, (
-        "a recorded push leaves nothing outstanding"
-    )
-
-
-def test_an_api_update_targets_the_recorded_id(project: Path) -> None:
-    seen: list[str] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        seen.append(request.url.path)
-        return httpx.Response(200, headers={"x-linkedin-id": "urn:new"})
-
-    config = load_config(project / CONFIG_NAME)
-    first = sync.build(config)
-    known = {change.key: "urn:known" for change in first.changeset.of("position")}
-    sync.record(config, first, transport="api", ids=known)
-
-    source = project / "base" / "resume.md"
-    source.write_text(RESUME.replace("several hundred", "a thousand"), encoding="utf-8")
-    client = Client(
-        "tok", person_id="ME", http=httpx.Client(transport=httpx.MockTransport(handler))
-    )
-    sync.apply_api(sync.build(config), client, known)
-    assert "/v2/people/id=ME/positions/urn:known" in seen
 
 
 def test_an_overlay_beside_the_resume_needs_no_configuration(project: Path) -> None:

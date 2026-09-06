@@ -36,15 +36,6 @@ class SyncState(BaseModel):
 
     profile: Profile = Field(default_factory=Profile)
     synced_at: datetime | None = None
-    #: Which transport applied it. Worth keeping: a state recorded from a
-    #: review the author says they pasted in is a weaker claim than one the
-    #: API confirmed, and ``status`` says which you have.
-    transport: str = ""
-    #: cvme's key for an entity -> the id LinkedIn gave it. Only the API
-    #: transport can fill this in, and without it an update has nothing to
-    #: address, so a position first applied by hand is created rather than
-    #: updated the first time the API is used.
-    remote_ids: dict[str, str] = Field(default_factory=dict)
 
     @property
     def recorded(self) -> bool:
@@ -74,20 +65,9 @@ def load(root: Path) -> SyncState:
         ) from exc
 
 
-def save(
-    root: Path,
-    profile: Profile,
-    *,
-    transport: str,
-    remote_ids: dict[str, str] | None = None,
-) -> Path:
+def save(root: Path, profile: Profile) -> Path:
     """Record ``profile`` as applied."""
-    state = SyncState(
-        profile=profile,
-        synced_at=datetime.now(UTC),
-        transport=transport,
-        remote_ids=dict(remote_ids or {}),
-    )
+    state = SyncState(profile=profile, synced_at=datetime.now(UTC))
     path = path_for(root)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
