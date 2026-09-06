@@ -39,7 +39,7 @@ class DocumentConfig(BaseModel):
     tailor: bool = True
     #: The filename stem used inside a hunt's ``apps/`` directory. Defaults to
     #: the document's name, so a document called ``base`` can still be filed
-    #: as ``cv1.md`` where that is what you call it.
+    #: as ``cv1.md`` in legacy hunts; new output uses name/title filenames.
     hunt_stem: str = ""
 
 

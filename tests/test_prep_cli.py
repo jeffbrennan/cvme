@@ -139,8 +139,8 @@ def test_a_run_builds_the_whole_directory(project: Path) -> None:
     assert hunt.name.startswith("01_northwind-health_staff-data-engineer_")
 
     assert (hunt / "posting.md").is_file()
-    assert (hunt / "apps" / "cv1.md").is_file()
-    assert (hunt / "apps" / "cv1.pdf").is_file()
+    assert (hunt / "apps" / "v1/morgan_avery_staff_data_engineer.md").is_file()
+    assert (hunt / "apps" / "v1/morgan_avery_staff_data_engineer.pdf").is_file()
     assert (hunt / "apps" / "index.md").is_file()
     assert "first version" in (hunt / "apps" / "index.md").read_text()
 
@@ -171,8 +171,8 @@ def test_a_second_run_adds_a_version_beside_the_first(project: Path) -> None:
 
     assert len(list(hunts(project).iterdir())) == 1, "the same posting, one hunt"
     apps_dir = next(iter(hunts(project).iterdir())) / "apps"
-    assert (apps_dir / "cv1.md").is_file()
-    assert (apps_dir / "cv2.md").is_file()
+    assert (apps_dir / "v1/morgan_avery_staff_data_engineer.md").is_file()
+    assert (apps_dir / "v2/morgan_avery_staff_data_engineer.md").is_file()
     index = (apps_dir / "index.md").read_text()
     assert "| 1 |" in index and "| 2 |" in index
     assert "shorter" in index
@@ -192,15 +192,20 @@ def test_an_invented_metric_stops_the_pdf_but_not_the_run(project: Path) -> None
     assert result.exit_code == 3, result.output
 
     hunt = next(iter(hunts(project).iterdir()))
-    assert (hunt / "apps" / "cv1.md").is_file(), "the draft is kept for inspection"
-    assert not (hunt / "apps" / "cv1.pdf").exists()
+    assert (hunt / "apps" / "v1/morgan_avery_staff_data_engineer.md").is_file(), (
+        "the draft is kept for inspection"
+    )
+    assert not (hunt / "apps" / "v1/morgan_avery_staff_data_engineer.pdf").exists()
     assert (hunt / "report.md").is_file(), "the report is still worth having"
     assert (hunt / "apps" / "index.md").is_file()
     assert "did not pass verification" in result.output
 
     listed = apps(project, "list")
     assert "Northwind Health" in listed.output, "and it is still tracked"
-    assert "cv1 (rejected)" in (hunt / "apps" / "index.md").read_text()
+    assert (
+        "v1/morgan_avery_staff_data_engineer.md (rejected)"
+        in (hunt / "apps" / "index.md").read_text()
+    )
 
 
 def test_the_none_agent_leaves_prompts_and_a_score(project: Path) -> None:
@@ -283,7 +288,7 @@ def test_show_reports_every_version(project: Path) -> None:
     prep(project, "--agent", "stub", "-d", "resume", "--no-report")
     result = apps(project, "show", "northwind")
     assert result.exit_code == 0, result.output
-    assert "cv1" in result.output and "cv2" in result.output
+    assert "v1/" in result.output and "v2/" in result.output
 
 
 GRIM = """\
@@ -411,21 +416,28 @@ def test_import_drafts_verifies_renders_and_versions(project: Path) -> None:
     hunt = next(iter(hunts(project).iterdir()))
     drafts = project / "drafts"
     drafts.mkdir()
-    shutil.copyfile(hunt / "apps/cv1.md", drafts / "resume.md")
+    shutil.copyfile(
+        hunt / "apps/v1/morgan_avery_staff_data_engineer.md", drafts / "resume.md"
+    )
     (drafts / "report.md").write_text("### The role in one paragraph\nImported brief.")
     result = prep(project, "--drafts-dir", str(drafts), "-d", "resume")
     assert result.exit_code == 0, result.output
-    assert (hunt / "apps/cv2.pdf").is_file()
+    assert (hunt / "apps/v2/morgan_avery_staff_data_engineer.pdf").is_file()
     assert "Imported brief" in (hunt / "report.md").read_text()
     assert "**Fit " in (hunt / "report.md").read_text()
-    assert "cv2" in (hunt / "apps/index.md").read_text()
+    assert (
+        "v2/morgan_avery_staff_data_engineer.md" in (hunt / "apps/index.md").read_text()
+    )
     (drafts / "resume.md").write_text(
         (drafts / "resume.md").read_text().replace("14 facilities", "22 facilities")
     )
     rejected = prep(project, "--drafts-dir", str(drafts), "-d", "resume")
     assert rejected.exit_code == 3, rejected.output
-    assert not (hunt / "apps/cv3.pdf").exists()
-    assert "cv3 (rejected)" in (hunt / "apps/index.md").read_text()
+    assert not (hunt / "apps/v3/morgan_avery_staff_data_engineer.pdf").exists()
+    assert (
+        "v3/morgan_avery_staff_data_engineer.md (rejected)"
+        in (hunt / "apps/index.md").read_text()
+    )
 
 
 def test_missing_import_draft_fails_before_creating_hunt(project: Path) -> None:

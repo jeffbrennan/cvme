@@ -201,15 +201,25 @@ hunts/2026/01_northwind-health_staff-data-engineer_2026-01-04/
     report.md     the computed fit score, then the written background
     apps/
         index.md  every version, and how each differs from the one before
-        cv1.md  cv1.pdf  cover_letter1.md  cover_letter1.pdf
-        cv2.md  cv2.pdf  cover_letter2.md  cover_letter2.pdf
+        v1/
+            jeff_brennan_staff_data_engineer.md
+            jeff_brennan_staff_data_engineer.pdf
+            jeff_brennan_staff_data_engineer_cover_letter.md
+            jeff_brennan_staff_data_engineer_cover_letter.pdf
+        v2/  # the next version, with the same filenames
 ```
 
 Running it again on the same posting adds version 2 beside version 1 rather
 than overwriting it, because the comparison worth having is against what you
-nearly sent. `--new` forces a separate hunt instead. The filename stem comes
-from `hunt_stem` on the document, so `[documents.base]` can still be filed as
-`cv1.md`.
+nearly sent. `--new` forces a separate hunt instead. Filenames use the candidate name from the base document
+and the normalized posting title: `<name>_<title>.md` and `.pdf`. Cover letters
+add `_cover_letter`. Numeric grades, Specialist qualifiers, and trailing
+department/location text are removed; explicit Senior, Staff, Principal and
+Lead levels are preserved. Grade III is not automatically promoted to Senior.
+The posting and document contents retain their original titles. Both `prep`
+and `tailor` use this naming convention. `prep` stores revisions under `v1/`,
+`v2/`, etc., and still recognizes legacy numbered files when choosing the next
+version. `hunt_stem` is retained only for that legacy lookup.
 
 To finish drafts written by hand or by an assistant in your current session,
 put them in a directory named by document key (`base.md` and `cover_letter.md`

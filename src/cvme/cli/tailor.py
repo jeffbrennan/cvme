@@ -17,7 +17,9 @@ from cvme.config import Config, find_config, load_config
 from cvme.errors import ConfigError
 from cvme.generate import agent as agents
 from cvme.generate.bundle import Bundle, build
+from cvme.generate.naming import filenames
 from cvme.generate.produce import produce
+from cvme.jobs.writer import read as read_posting
 from cvme.style.schema import resolve as resolve_style
 from cvme.verify.corpus import Corpus
 from cvme.verify.corpus import load as load_corpus
@@ -81,6 +83,7 @@ def tailor(
 
     workdir = (out or (config.project.applications_dir / job_path.stem)).resolve()
 
+    names = filenames(config, wanted, read_posting(job_path).title)
     bundles: list[Bundle] = []
     for name in wanted:
         document = config.document(name)
@@ -91,10 +94,10 @@ def tailor(
                 base_path=document.path,
                 job_path=job_path,
                 facts=config.project.facts,
-                output_path=workdir / f"{name}.md",
+                output_path=workdir / names[name],
                 style=resolve_style(document.style, document.overrides),
                 generate=config.generate,
-                agent_output_path=Path(f"{name}.md"),
+                agent_output_path=Path(names[name]),
             )
         )
 

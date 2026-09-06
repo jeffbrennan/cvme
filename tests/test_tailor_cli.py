@@ -98,8 +98,8 @@ def test_a_good_run_verifies_and_renders(project: Path) -> None:
     result = run(project, "--agent", "stub", "-d", "resume")
     assert result.exit_code == 0, result.output
     out = project / "applications" / "northwind"
-    assert (out / "resume.md").is_file()
-    assert (out / "resume.pdf").is_file()
+    assert (out / "morgan_avery_staff_data_engineer.md").is_file()
+    assert (out / "morgan_avery_staff_data_engineer.pdf").is_file()
     assert (out / "resume.prompt.md").is_file()
 
 
@@ -107,15 +107,19 @@ def test_an_invented_metric_blocks_the_pdf(project: Path) -> None:
     result = run(project, "--agent", "liar", "-d", "resume")
     assert result.exit_code == 3, result.output
     out = project / "applications" / "northwind"
-    assert (out / "resume.md").is_file(), "the draft is kept for inspection"
-    assert not (out / "resume.pdf").exists()
+    assert (out / "morgan_avery_staff_data_engineer.md").is_file(), (
+        "the draft is kept for inspection"
+    )
+    assert not (out / "morgan_avery_staff_data_engineer.pdf").exists()
     assert "does not appear in the cited fact" in result.output
 
 
 def test_a_failed_run_removes_a_stale_pdf(project: Path) -> None:
     """Otherwise a rejected draft sits beside a PDF that could still be sent."""
     assert run(project, "--agent", "stub", "-d", "resume").exit_code == 0
-    pdf = project / "applications" / "northwind" / "resume.pdf"
+    pdf = (
+        project / "applications" / "northwind" / "morgan_avery_staff_data_engineer.pdf"
+    )
     assert pdf.is_file()
 
     result = run(project, "--agent", "liar", "-d", "resume")
@@ -137,21 +141,25 @@ def test_the_none_agent_leaves_a_prompt_to_paste(project: Path) -> None:
     prompt = project / "applications" / "northwind" / "resume.prompt.md"
     assert prompt.is_file()
     assert "# BASE DOCUMENT" in prompt.read_text()
-    assert not (project / "applications" / "northwind" / "resume.md").exists()
+    assert not (
+        project / "applications" / "northwind" / "morgan_avery_staff_data_engineer.md"
+    ).exists()
 
 
 def test_no_verify_lets_a_bad_document_through(project: Path) -> None:
     result = run(project, "--agent", "liar", "-d", "resume", "--no-verify")
     assert result.exit_code == 0, result.output
-    assert (project / "applications" / "northwind" / "resume.pdf").is_file()
+    assert (
+        project / "applications" / "northwind" / "morgan_avery_staff_data_engineer.pdf"
+    ).is_file()
 
 
 def test_both_documents_are_produced_by_default(project: Path) -> None:
     result = run(project, "--agent", "stub")
     assert result.exit_code == 0, result.output
     out = project / "applications" / "northwind"
-    assert (out / "resume.pdf").is_file()
-    assert (out / "cover_letter.pdf").is_file()
+    assert (out / "morgan_avery_staff_data_engineer.pdf").is_file()
+    assert (out / "morgan_avery_staff_data_engineer_cover_letter.pdf").is_file()
 
 
 def test_an_unknown_document_lists_the_configured_ones(project: Path) -> None:
@@ -174,7 +182,7 @@ def test_relative_output_directory_is_resolved_before_agent_runs(
     monkeypatch.chdir(project)
     result = run(project, "--agent", "stub", "-d", "resume", "--out", "custom")
     assert result.exit_code == 0, result.output
-    assert (project / "custom" / "resume.md").is_file()
+    assert (project / "custom" / "morgan_avery_staff_data_engineer.md").is_file()
     assert not (project / "custom" / "custom").exists()
 
 

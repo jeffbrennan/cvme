@@ -31,6 +31,7 @@ from cvme.config import Config, find_config, load_config
 from cvme.errors import ConfigError, VerificationFailed
 from cvme.generate import agent as agents
 from cvme.generate.bundle import build
+from cvme.generate.naming import filenames
 from cvme.generate.produce import Produced, generate, produce, write_prompt
 from cvme.hunt import culture as culture_lexicon
 from cvme.hunt import index, layout, pay, report
@@ -254,6 +255,7 @@ def prep(
         _fit_only(posting, fit, money, culture)
         return
 
+    names = filenames(config, wanted, posting.title)
     hunt = _locate(config, posting, new=new)
     hunt.apps.mkdir(parents=True, exist_ok=True)
     hunt.posting.write_text(writer.to_markdown(posting), encoding="utf-8")
@@ -264,6 +266,8 @@ def prep(
 
     stems = [config.hunt_stem(name) for name in wanted]
     round_number = layout.next_round(hunt.apps, stems)
+    version_dir = hunt.apps / f"v{round_number}"
+    version_dir.mkdir(exist_ok=True)
 
     spec = agents.resolve(
         "none" if drafts_dir else (agent_name or config.generate.agent), config.agents
@@ -282,7 +286,6 @@ def prep(
     rejected: list[str] = []
     for name in wanted:
         document = config.document(name)
-        stem = config.hunt_stem(name)
         overrides = dict(document.overrides)
         # The company is known here, which is the whole reason to hang an
         # accent off it: an application to a company with one configured comes
@@ -296,10 +299,10 @@ def prep(
             base_path=document.path,
             job_path=hunt.posting,
             facts=config.project.facts,
-            output_path=hunt.apps / f"{stem}{round_number}.md",
+            output_path=version_dir / names[name],
             style=style,
             generate=config.generate,
-            agent_output_path=Path(f"{stem}{round_number}.md"),
+            agent_output_path=Path(names[name]),
         )
         try:
             produced.append(
@@ -393,11 +396,12 @@ def _record(
     """Index this run: the application, the round, and the apps/index.md."""
     # A rejected document is named too. Omitting it leaves an index that says
     # only what was produced, when what you need later is why one is missing.
+    names = filenames(config, documents, posting.title)
     listed = [
-        f"{config.hunt_stem(p.document)}{round_number}"
+        str(p.markdown.relative_to(hunt.apps))
         for p in produced
         if p.markdown is not None
-    ] + [f"{config.hunt_stem(name)}{round_number} (rejected)" for name in rejected]
+    ] + [f"v{round_number}/{names[name]} (rejected)" for name in rejected]
     with ApplicationStore(config.search.database) as store:
         store.record(
             slug=hunt.slug,
@@ -423,7 +427,7 @@ def _record(
                 f"{p.document} {p.pages}p" for p in produced if p.pages is not None
             ),
             fit=fit.score,
-            changes=_changes(config, hunt, documents, round_number),
+            changes=_changes(config, hunt, documents, round_number, posting.title),
             note=note,
         )
         index.write(
@@ -485,14 +489,24 @@ def _write_report(
 
 
 def _changes(
-    config: Config, hunt: layout.Hunt, documents: list[str], round_number: int
+    config: Config,
+    hunt: layout.Hunt,
+    documents: list[str],
+    round_number: int,
+    title: str,
 ) -> str:
     """How this round's lead document differs from the round before it."""
     stem = config.hunt_stem(documents[0])
-    current = hunt.apps / f"{stem}{round_number}.md"
+    filename = filenames(config, documents, title)[documents[0]]
+    current = hunt.apps / f"v{round_number}" / filename
     if not current.is_file():
         return "not generated"
-    earlier = layout.rounds(hunt.apps, stem)
+    earlier = layout.rounds(hunt.apps, stem) + layout.version_rounds(hunt.apps)
     prior = [n for n in earlier if n < round_number]
-    previous = hunt.apps / f"{stem}{max(prior)}.md" if prior else None
+    previous = None
+    if prior:
+        number = max(prior)
+        previous = hunt.apps / f"v{number}" / filename
+        if not previous.is_file():
+            previous = hunt.apps / f"{stem}{number}.md"
     return index.summarise(previous, current)

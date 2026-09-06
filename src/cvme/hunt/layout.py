@@ -11,8 +11,8 @@ documents that were sent or nearly sent.
         report.md
         apps/
             index.md
-            cv1.md  cv1.pdf  cover_letter1.md  cover_letter1.pdf
-            cv2.md  cv2.pdf  cover_letter2.md  cover_letter2.pdf
+            v1/name_staff_data_engineer.md  name_staff_data_engineer.pdf
+            v2/name_staff_data_engineer.md  name_staff_data_engineer.pdf
 
 Filing moves the whole directory under a status, so what is still unanswered
 is what is still at the top level of the year.
@@ -152,6 +152,17 @@ def rounds(apps: Path, stem: str) -> list[int]:
     return sorted(found)
 
 
+def version_rounds(apps: Path) -> list[int]:
+    """Version directories keep revision numbers out of sendable filenames."""
+    if not apps.is_dir():
+        return []
+    return sorted(
+        int(path.name[1:])
+        for path in apps.iterdir()
+        if path.is_dir() and re.fullmatch(r"v[1-9][0-9]*", path.name)
+    )
+
+
 def next_round(apps: Path, stems: list[str]) -> int:
     """The next version number, shared by every document in the hunt.
 
@@ -159,7 +170,7 @@ def next_round(apps: Path, stems: list[str]) -> int:
     went with it are one attempt, and reading them back apart is how you end up
     sending version three of one with version one of the other.
     """
-    used = [n for stem in stems for n in rounds(apps, stem)]
+    used = version_rounds(apps) + [n for stem in stems for n in rounds(apps, stem)]
     return max(used, default=0) + 1
 
 
