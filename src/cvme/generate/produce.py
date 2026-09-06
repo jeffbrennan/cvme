@@ -106,16 +106,22 @@ def produce(
     verify: bool,
     should_render: bool,
     echo: Echo,
+    draft: Path | None = None,
 ) -> Produced:
     """Prompt, generate, verify, render. Any step may be turned off."""
     prompt_path = write_prompt(bundle, prompt_dir)
-    if spec.writes_nothing:
+    if spec.writes_nothing and draft is None:
         echo(f"wrote {prompt_path}")
         echo("  paste it into any assistant, then run 'cvme verify'")
         return Produced(bundle.document, prompt_path)
 
-    echo(f"running {spec.name} for {bundle.document}...")
-    generate(spec, bundle, prompt_path)
+    if draft is not None:
+        bundle.output_path.write_text(
+            draft.read_text(encoding="utf-8"), encoding="utf-8"
+        )
+    else:
+        echo(f"running {spec.name} for {bundle.document}...")
+        generate(spec, bundle, prompt_path)
     echo(f"  wrote {bundle.output_path}")
 
     produced = Produced(bundle.document, prompt_path, markdown=bundle.output_path)

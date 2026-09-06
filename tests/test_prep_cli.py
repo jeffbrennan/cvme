@@ -403,3 +403,40 @@ def test_wants_adjusts_fit_only_and_is_kept_out_of_skill_evidence(project: Path)
     unanswered = result.output.split("**Not answered.**")[1].splitlines()[0]
     assert "rust" in unanswered
     assert not (project / "hunts" / YEAR).exists()
+
+
+def test_import_drafts_verifies_renders_and_versions(project: Path) -> None:
+    first = prep(project, "--agent", "stub", "-d", "resume", "--no-report")
+    assert first.exit_code == 0, first.output
+    hunt = next(iter(hunts(project).iterdir()))
+    drafts = project / "drafts"
+    drafts.mkdir()
+    shutil.copyfile(hunt / "apps/cv1.md", drafts / "resume.md")
+    (drafts / "report.md").write_text("### The role in one paragraph\nImported brief.")
+    result = prep(project, "--drafts-dir", str(drafts), "-d", "resume")
+    assert result.exit_code == 0, result.output
+    assert (hunt / "apps/cv2.pdf").is_file()
+    assert "Imported brief" in (hunt / "report.md").read_text()
+    assert "**Fit " in (hunt / "report.md").read_text()
+    assert "cv2" in (hunt / "apps/index.md").read_text()
+    (drafts / "resume.md").write_text(
+        (drafts / "resume.md").read_text().replace("14 facilities", "22 facilities")
+    )
+    rejected = prep(project, "--drafts-dir", str(drafts), "-d", "resume")
+    assert rejected.exit_code == 3, rejected.output
+    assert not (hunt / "apps/cv3.pdf").exists()
+    assert "cv3 (rejected)" in (hunt / "apps/index.md").read_text()
+
+
+def test_missing_import_draft_fails_before_creating_hunt(project: Path) -> None:
+    result = prep(project, "--drafts-dir", str(project), "-d", "resume")
+    assert result.exit_code == 1, result.output
+    assert "missing or empty draft" in result.output
+    assert not hunts(project).exists()
+
+
+def test_import_drafts_rejects_agent_option(project: Path) -> None:
+    result = prep(project, "--drafts-dir", str(project), "--agent", "stub")
+    assert result.exit_code == 1, result.output
+    assert "cannot be combined" in result.output
+    assert not hunts(project).exists()

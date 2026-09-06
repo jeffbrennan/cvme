@@ -211,6 +211,21 @@ nearly sent. `--new` forces a separate hunt instead. The filename stem comes
 from `hunt_stem` on the document, so `[documents.base]` can still be filed as
 `cv1.md`.
 
+To finish drafts written by hand or by an assistant in your current session,
+put them in a directory named by document key (`base.md` and `cover_letter.md`
+for a project with those documents), plus `report.md` for the role brief:
+
+```bash
+cvme prep path/to/posting.md --drafts-dir path/to/drafts --note 'Azure platform emphasis'
+```
+
+This imports the drafts without invoking an agent, applies the same citation
+verification and PDF page limits, and records a new application version. The
+computed fit/pay/work-life block is prepended to the imported brief. All selected
+drafts must exist and be nonempty before a hunt is changed. Use `--no-report`
+if no brief is supplied, or `-d base` to import only that document. Do not combine
+`--drafts-dir` with `--agent`. Source drafts remain untouched.
+
 ### The fit score
 
 The score is computed, and it shows its working. A model asked to rate a fit

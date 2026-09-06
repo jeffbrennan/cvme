@@ -158,6 +158,13 @@ def prep(
     config_path: Annotated[
         Path | None, typer.Option("--config", help="Path to cvme.toml.")
     ] = None,
+    drafts_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--drafts-dir",
+            help="Import NAME.md drafts and report.md without running an agent.",
+        ),
+    ] = None,
     html: Annotated[
         Path | None, typer.Option("--html", help="A saved HTML page to read instead.")
     ] = None,
@@ -218,6 +225,14 @@ def prep(
     for name in wanted:
         config.document(name)  # raises with the known names
 
+    if drafts_dir is not None:
+        if agent_name is not None:
+            raise ConfigError("--drafts-dir cannot be combined with --agent")
+        for name in wanted + ([] if no_report else ["report"]):
+            draft = drafts_dir / f"{name}.md"
+            if not draft.is_file() or not draft.read_text(encoding="utf-8").strip():
+                raise ConfigError(f"missing or empty draft: {draft}")
+
     posting = _capture(
         target, config, html=html, text=text, stdin=stdin, no_cache=no_cache
     )
@@ -250,7 +265,9 @@ def prep(
     stems = [config.hunt_stem(name) for name in wanted]
     round_number = layout.next_round(hunt.apps, stems)
 
-    spec = agents.resolve(agent_name or config.generate.agent, config.agents)
+    spec = agents.resolve(
+        "none" if drafts_dir else (agent_name or config.generate.agent), config.agents
+    )
     corpus: Corpus = (
         load_corpus(config.project.facts) if config.project.facts else Corpus()
     )
@@ -296,6 +313,7 @@ def prep(
                     verify=not no_verify,
                     should_render=not no_render,
                     echo=typer.echo,
+                    draft=drafts_dir / f"{name}.md" if drafts_dir else None,
                 )
             )
         except VerificationFailed as exc:
@@ -306,9 +324,29 @@ def prep(
             rejected.append(name)
 
     if not no_report:
-        _write_report(
-            config, hunt, posting, fit, money, culture, spec, prompts, base=wanted[0]
-        )
+        if drafts_dir is not None:
+            hunt.report.write_text(
+                report.compose(
+                    posting,
+                    fit,
+                    money,
+                    culture,
+                    (drafts_dir / "report.md").read_text(encoding="utf-8"),
+                ),
+                encoding="utf-8",
+            )
+        else:
+            _write_report(
+                config,
+                hunt,
+                posting,
+                fit,
+                money,
+                culture,
+                spec,
+                prompts,
+                base=wanted[0],
+            )
 
     _record(
         config,
