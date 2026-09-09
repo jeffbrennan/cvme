@@ -14,6 +14,7 @@ from cvme.cli.digest import digest
 from cvme.cli.errors import err_console, handled
 from cvme.cli.init import init
 from cvme.cli.job import app as job_app
+from cvme.cli.linkedin import app as linkedin_app
 from cvme.cli.prep import prep
 from cvme.cli.render import render
 from cvme.cli.tailor import tailor
@@ -35,6 +36,7 @@ app.command()(tailor)
 app.command()(prep)
 app.add_typer(job_app, name="job")
 app.add_typer(apps_app, name="apps")
+app.add_typer(linkedin_app, name="linkedin")
 
 
 @app.command()
@@ -74,6 +76,17 @@ def doctor() -> None:
         available, detail = probe(spec)
         mark = "[green]ok[/green]" if available else "[yellow]absent[/yellow]"
         err_console.print(f"agent {spec.name}: {mark} {detail}")
+
+    # Optional too: every profile source but the browser one works without it.
+    try:
+        import playwright  # noqa: F401
+
+        err_console.print("browser capture: [green]ok[/green] playwright installed")
+    except ImportError:
+        err_console.print(
+            "browser capture: [yellow]absent[/yellow] "
+            "`uv sync --extra browser && uv run playwright install chromium`"
+        )
 
     if not ok:
         raise typer.Exit(1)

@@ -16,6 +16,9 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --all-extras --dev --python ${{ matrix.python-version }}
+      # The DOM extractor is tested against local fixture pages in a real
+      # browser. Without this they skip, and a selector regression lands green.
+      - run: uv run playwright install --with-deps chromium
       - run: uv run ruff format --check .
       - run: uv run ruff check .
       - run: uv run pyrefly check

@@ -844,3 +844,257 @@ not have to walk and re-parse the tree.
 
 `cvme apps list` sorts by fit descending and shows only unsent applications by
 default, since that is the order and the subset to spend an evening in.
+
+## 16. LinkedIn sync (Milestone 11)
+
+`base.md` states what is true; the LinkedIn profile restates it in a web form
+and drifts the moment the resume changes. The profile becomes a projection of
+the document, and the projection is the whole of the feature's opinion, so it
+is written down in one place (`linkedin/project.py`) rather than spread through
+the CLI.
+
+### 16.1 The access ceiling, stated first
+
+LinkedIn's Profile Edit API exists, is documented, and is restricted to
+developers approved through a partner programme. The self-serve tier grants
+`openid`, `profile`, `email` and `w_member_social`; none writes a profile
+section. An automated push is therefore unavailable, and no amount of correct
+code changes that.
+
+An OAuth client and an API writer were built against the documented endpoints
+and then removed. They were correct and unusable, and unusable code that looks
+usable is worse than none: it invites a reader to assume the push works, and it
+carries a credential store and a loopback OAuth server as attack surface for a
+call that can only return 403. If the access ever arrives, the projection, the
+diff and the state are all still here and a writer is the small part.
+
+The option never taken was driving a logged-in browser. It violates LinkedIn's
+terms, and the same judgement is already recorded for job capture in
+`jobs/sources.py`: cvme reports what it cannot reach rather than bypassing it.
+
+What is left is the part that was actually hard. Pasting a field takes seconds;
+knowing which of forty fields moved since you last looked is the work, and that
+is what cvme does.
+
+### 16.2 The overlay
+
+A profile has no page budget, so the copy differs from the resume's. The
+temptation is a second document; the cost of a second document is exactly the
+drift the feature exists to remove.
+
+So `linkedin.md` is a patch in the same grammar, merged on the document IR
+before projection. It states only what should read differently, and everything
+else comes from `base.md`. Merging on the IR rather than after projection means
+the mapping is written once and neither file gets a special case.
+
+Entries match on role, organisation and start date. The end date is deliberately
+excluded: the entry an overlay most wants to extend is the current role, and a
+key containing "Present" would stop matching the day that became a date, quietly
+appending a duplicate job rather than replacing one.
+
+### 16.3 Diffing against the last push
+
+A one-way sync needs a memory, and the memory cannot be LinkedIn: reading
+positions back needs the same partner access as writing them. So the last
+applied profile is recorded in `.cvme/linkedin/state.json` and the next run
+diffs against it. An edit to one bullet is then one field to update, rather
+than a whole profile to re-read.
+
+This is what makes the manual step bounded. The first run lists everything and
+is a one-off; the steady state is zero or one changed field. Without the state
+file, every run would hand back the whole profile and the feature would be
+worth less than reading the PDF.
+
+The state is written when you say a sync was applied and at no other time.
+cvme cannot see the profile, so `cvme linkedin record` is a separate step:
+saying "recorded" when nothing was pasted is the one lie that makes every later
+diff wrong.
+
+A corrupt state file is an error rather than a silent reset, for the same
+reason: resetting would present the whole profile as new.
+
+### 16.4 Limits are checked, not applied
+
+The composer caps the headline at 220 characters, About at 2,600 and a role
+description at 2,000. Truncating to fit would put a half-sentence on a public
+profile, so every over-long field is named and the run stops before writing a
+changeset. It is the same principle as `cvme verify`: the failure is worth more
+than the output.
+
+Sections with no LinkedIn field -- `Projects`, say -- are reported rather than
+dropped, because "a third of your document was ignored" should not be something
+you discover from the profile. `## Gaps` is the exception and is dropped at the
+projection boundary, since a public profile is the worst possible destination
+for a list of your weaknesses.
+
+### 16.5 Auditing against the live profile
+
+`record` is a promise: the author telling cvme that the paste happened. A
+promise is the weakest link in the design, because every later diff is computed
+against it, so `cvme linkedin check` exists to put evidence behind it.
+
+The profile is read from the member's own data export -- Settings & Privacy >
+Data Privacy > Get a copy of your data -- which is first-party, needs
+permission from nobody, and is the only way to read a profile back: the Profile
+API's read scopes are as partner-gated as its write ones, and scraping the page
+is both blocked and against the terms.
+
+The comparison is `diff` read the other way round. Diffing the projected
+profile against the live one turns `add` into "missing", `update` into "stale"
+and `remove` into "extra", so there is one comparison engine rather than two
+that can disagree about what "the same position" means.
+
+Only `missing` and `stale` fail by default. The contract a one-way sync makes
+is "everything base.md says is on the profile", not "the profile says nothing
+else": a resume drops an old job for space, and the profile keeping it is
+correct rather than drift. `--strict` is for wanting the profile to be exactly
+the document.
+
+`check --record` records the exported profile, not the projected one, so what
+has not been applied stays outstanding. It records only the entries cvme
+manages, because importing an extra verbatim would make every later changeset
+say to delete a job the author meant to keep, and a standing instruction to
+undo something deliberate is worse than not tracking it.
+
+Two details cost more thought than they look. The archive's columns are read by
+name through an alias table and not by position, because LinkedIn publishes no
+schema for it and has renamed these before; a file that cannot be understood is
+an error naming the headers actually found, so a rename is a five-second
+diagnosis rather than a profile that silently audits as empty. And profile text
+is normalised on the way into the model rather than at comparison time, because
+a description that has been through LinkedIn's storage and back returns with
+different trailing whitespace, and a trailing space is not a claim that
+changed.
+
+Building the audit paid for itself immediately: the first realistic export
+fixture showed the projection reading a graduation date as the *start* of a
+degree, which would have put "2020 - Present" on a finished master's. A lone
+date is a start on a position and an end on an education, and nothing but a
+round trip through real data was going to surface that.
+
+### 16.6 Getting the profile back without an export
+
+The data export is complete and arrives by email in minutes, and a check you
+have to wait for is a check you stop running. So `check` takes a source ladder
+rather than one file, ordered by what it costs the author rather than by what
+it returns:
+
+| Source | Effort | Reports |
+|---|---|---|
+| Profile PDF (More > Save to PDF) | one click | headline, About, roles, degrees |
+| Data export (CSV/ZIP) | a few minutes | all of it, including skills |
+
+The PDF path is almost no new code. `cvme convert` already recovers a resume
+from a PDF by geometry, and a profile PDF is resume-shaped, so the path is the
+existing pipeline pointed at a different document. What it needed was one
+repair: a PDF has no paragraphs, so the degree beneath a school heading arrives
+as loose prose with the award date inside it, and sometimes with the following
+note run onto the end. The reader splits that line at the first real month-year
+-- real, because a looser pattern reads "Master of Science 2020" as naming the
+month "Science".
+
+Fetching `linkedin.com/in/...` is absent for a reason worth writing down, since
+it is the first thing anyone proposes. LinkedIn's user agreement forbids
+automated access, and *hiQ Labs v. LinkedIn* closed in 2022 with a $500,000
+judgment against hiQ for breaching it and a permanent injunction to stop and
+delete what it had taken. The much-quoted holding from that case -- that
+scraping public pages is not a CFAA violation -- was about the criminal statute
+and left the contract claim standing, which LinkedIn then won. `jobs/sources.py`
+already records the same judgement for job pages.
+
+#### Coverage, so a partial source cannot invent drift
+
+A source that reports part of a profile must not be compared against the rest.
+A profile PDF prints three "Top Skills", and an author who downloaded only
+Skills.csv has no positions in hand; comparing against either would report the
+whole of the absent part as missing, which is a fact about the source dressed
+up as drift in the profile.
+
+So every source declares which of `Profile.PARTS` it vouches for, the audit
+restricts both sides to that set, and `check` prints what went unchecked on
+every run -- including clean ones, because a clean result from a source that
+never looked at your skills is not a clean profile.
+
+Coverage is evidence-based rather than assumed. The PDF reader claims education
+only once it has actually recovered a degree for every entry, and the export
+reader claims a part only if the archive carried that table. A table that is
+present but empty still counts: a `Skills.csv` holding nothing but its header is
+LinkedIn saying you have no skills, and dropping it would make that
+indistinguishable from not having downloaded it.
+
+Recording follows the same rule. `check --record` writes what the source saw,
+and keeps the previously recorded value for whatever it could not see, so
+checking with a PDF does not blank the skills a previous export established.
+
+### 16.7 The browser capture (opt-in)
+
+The PDF and the export both cost a detour to LinkedIn's UI. A local browser
+signed in as the author costs one command, and is the only route that reads the
+profile as it actually stands with no file to fetch first.
+
+It is also the only route LinkedIn does not permit. The user agreement
+prohibits automated access and carves out no exception for your own profile, so
+the feature is opt-in behind an extra, the account risk is the author's to
+accept, and the code says so where someone changing it will read it.
+
+What that means in the implementation, because "we were careful" is not a
+design note:
+
+* the browser is visible, and is plainly Chromium under automation;
+* the author types their own credentials into LinkedIn's own form and clears
+  their own MFA; cvme never handles a credential;
+* `launch_persistent_context` is called with no arguments, because the flags
+  that would go there are the ones that hide automation. A challenge stops the
+  capture rather than being worked around. Automating your own account is one
+  thing; defeating the controls that would notice is another;
+* the session navigates to the profile LinkedIn resolves for the signed-in
+  account and confirms it with a control only an owner sees. No target URL is
+  accepted from the caller, so it cannot be pointed at anybody else;
+* the Chromium profile is cvme's own, under the user data directory at mode
+  700, never the everyday browser profile, so the session can be revoked
+  without touching a real one.
+
+#### Status, because a capture is an inference
+
+A page that lazy-loads, collapses text and paginates cannot be read with the
+confidence a CSV can. So each section carries `complete`, `empty`, `partial` or
+`unavailable`, and only the first two feed `Source.covers`.
+
+This is the same coverage mechanism the PDF and export sources already use, and
+that is the point: a capture, a PDF and an export are interchangeable to the
+audit. The rules about partial sources were written once, in 16.6, and the
+browser did not need its own.
+
+The failure this prevents is specific. A timeout that reported "missing from
+LinkedIn" would send the author to paste in a role that is already there, and
+the second time it did that they would stop believing the tool. `partial`
+narrows what can be compared instead, which is a smaller and true statement.
+
+The rule that holds under a layout change is corroboration. A missing section
+anchor means either "this member has no Education" or "LinkedIn renamed the
+anchor", and nothing local to the section distinguishes them. So absence is
+believed only when some other section parsed; when none did, every section
+becomes `unavailable`. Without it, a rewritten layout reports the whole profile
+as empty, which is the most confidently wrong output the tool could produce.
+
+#### What the tests can and cannot prove
+
+CI cannot reach LinkedIn, so `SELECTORS` in `linkedin/dom.py` is a
+reconstruction and no test asserts it is current. The fixture tests drive real
+Playwright against sanitised local pages and cover what survives a selector
+rewrite: text duplicated into aria-hidden spans read once, roles nested under
+one employer flattened, a body expanded before it is read, a list still growing
+reported as partial, an established absence distinguished from a failed read,
+and an unrecognised layout producing no findings at all.
+
+Two design choices came directly out of writing those fixtures. The description
+is read from its own container rather than taken as "the lines after the
+location", and the date range is *found* rather than indexed -- a role with an
+employment type has one more header line than a role without, and a nested role
+has one fewer because its employer is on the card above, so any fixed index is
+wrong for two of the three shapes.
+
+`cvme linkedin capture` exists for the part tests cannot cover: it prints the
+recovered profile and the per-section status, so drift between the selectors
+and the live page is diagnosed by looking, and `dom.py` is the only file to
+edit when it happens.

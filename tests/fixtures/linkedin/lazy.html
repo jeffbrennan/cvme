@@ -1,0 +1,40 @@
+<!doctype html>
+<!--
+  A skills list that keeps appending as it is scrolled, and never stops.
+
+  This is the case the status type exists for. The extractor must not report
+  the three skills it managed to see as though they were the whole list, or
+  the audit would call every unseen skill missing from a profile that has it.
+-->
+<title>Lazy list</title>
+
+<main>
+  <section class="top-card">
+    <div class="text-body-medium break-words">Staff Data Engineer</div>
+  </section>
+
+  <section>
+    <div id="skills"></div>
+    <h2>Skills</h2>
+    <ul id="list">
+      <li class="artdeco-list__item"><span aria-hidden="true">Python</span></li>
+    </ul>
+  </section>
+</main>
+
+<script>
+  // Every time the last item is scrolled to, one more appears. A real list
+  // stops; this one is the pathological case the scroll budget bounds.
+  let n = 1;
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      const li = document.createElement("li");
+      li.className = "artdeco-list__item";
+      li.innerHTML = `<span aria-hidden="true">Skill ${++n}</span>`;
+      document.getElementById("list").append(li);
+      observer.observe(li);
+    }
+  });
+  observer.observe(document.querySelector("#list li"));
+</script>

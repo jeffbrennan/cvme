@@ -16,13 +16,16 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, Field
 
 from cvme.errors import ConfigError
 
 CONFIG_NAME = "cvme.toml"
+
+#: The parts of a LinkedIn profile cvme knows how to write.
+SyncField = Literal["headline", "summary", "positions", "educations", "skills"]
 
 
 class DocumentConfig(BaseModel):
@@ -112,6 +115,26 @@ class CultureConfig(BaseModel):
     extra_lifts: dict[str, int] = Field(default_factory=dict)
 
 
+class LinkedInConfig(BaseModel):
+    """One-way sync from the source document to a LinkedIn profile."""
+
+    model_config = {"extra": "forbid"}
+
+    #: Which configured document is the source of truth. The profile is a
+    #: projection of the resume, so naming the document keeps the two from
+    #: being separately maintained descriptions of the same career.
+    document: str = "resume"
+    #: The optional long-form overlay. Left unset, cvme uses ``linkedin.md``
+    #: beside the source document when that file exists, so the feature needs
+    #: no configuration to start using.
+    overlay: Path | None = None
+    #: Where the changeset is written, under `output_dir`.
+    changeset: Path = Path("linkedin-changeset.md")
+    #: Which parts of the profile cvme is allowed to write. Narrow it to keep
+    #: a section that is curated on LinkedIn out of the sync.
+    fields: list[SyncField] = Field(default_factory=lambda: list(get_args(SyncField)))
+
+
 class SearchSourceConfig(BaseModel):
     """One repeatable search on a supported job board."""
 
@@ -157,6 +180,7 @@ class Config(BaseModel):
     fit: FitConfig = Field(default_factory=FitConfig)
     accent: AccentConfig = Field(default_factory=AccentConfig)
     culture: CultureConfig = Field(default_factory=CultureConfig)
+    linkedin: LinkedInConfig = Field(default_factory=LinkedInConfig)
     #: Raw [agents.<name>] tables, layered over the packaged defaults at use.
     agents: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
@@ -212,6 +236,8 @@ def load_config(path: Path) -> Config:
     config.search.database = _resolve(root, config.search.database)
     if config.fit.wants is not None:
         config.fit.wants = _resolve(root, config.fit.wants)
+    if config.linkedin.overlay is not None:
+        config.linkedin.overlay = _resolve(root, config.linkedin.overlay)
     for document in config.documents.values():
         document.path = _resolve(root, document.path)
     return config
