@@ -72,7 +72,7 @@ def load_rules(path: Path = RULES_PATH) -> list[Rule]:
 def check_line(line: str, number: int, rules: list[Rule]) -> list[Finding]:
     findings = []
     for rule in rules:
-        if not rule.applies_to(line):
+        if rule.scope == "paragraph" or not rule.applies_to(line):
             continue
         if match := rule.pattern.search(line):
             findings.append(
@@ -82,6 +82,45 @@ def check_line(line: str, number: int, rules: list[Rule]) -> list[Finding]:
                     message=rule.message,
                     line=number,
                     excerpt=_excerpt(line, match.start(), match.end()),
+                    suggestion=rule.suggestion,
+                )
+            )
+    return findings
+
+
+def check_paragraph(lines: list[tuple[int, str]], rules: list[Rule]) -> list[Finding]:
+    """Rules that need more than one line to see what they are looking for.
+
+    A rhetorical figure runs across a sentence boundary, and a sentence
+    boundary in a hard-wrapped document is usually also a line boundary. Line
+    rules cannot see "is not the API surface. It is deciding" at all, so these
+    run against the paragraph joined back into one string, and report the line
+    the match starts on.
+    """
+    if not lines:
+        return []
+    joined = " ".join(line for _, line in lines)
+    # Where each line begins in the joined string, to map an offset back.
+    starts, offset = [], 0
+    for number, line in lines:
+        starts.append((offset, number))
+        offset += len(line) + 1
+
+    findings = []
+    for rule in rules:
+        if rule.scope != "paragraph":
+            continue
+        if match := rule.pattern.search(joined):
+            number = next(
+                num for start, num in reversed(starts) if start <= match.start()
+            )
+            findings.append(
+                Finding(
+                    rule=rule.id,
+                    severity=rule.severity,
+                    message=rule.message,
+                    line=number,
+                    excerpt=_excerpt(joined, match.start(), match.end()),
                     suggestion=rule.suggestion,
                 )
             )

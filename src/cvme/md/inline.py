@@ -18,6 +18,13 @@ from markdown_it.token import Token
 _SPECIAL = set("\\#$*_`<>@[]~")
 
 _FACT_RE = re.compile(r"<!--\s*fact:\s*([A-Za-z0-9_.-]+)\s*-->")
+#: The comment plus the horizontal whitespace either side of it. Trailing
+#: whitespace before a newline is left alone so a hardbreak survives.
+_FACT_SPAN = re.compile(
+    r"[ \t]*<!--\s*fact:\s*[A-Za-z0-9_.-]+\s*-->(?:[ \t]+(?![ \t]*\n))?"
+)
+#: Punctuation that must sit tight against the word before it.
+_CLINGS = ",.;:!?%)]}\n"
 
 _md = MarkdownIt("commonmark")
 
@@ -28,9 +35,25 @@ def escape(text: str) -> str:
 
 
 def extract_facts(source: str) -> tuple[str, list[str]]:
-    """Strip ``<!-- fact: id -->`` comments, returning the text and the ids."""
+    """Strip ``<!-- fact: id -->`` comments, returning the text and the ids.
+
+    A citation is written next to the claim it supports, which routinely puts
+    it between a word and the comma or semicolon after it. Removing the comment
+    alone would strand the space that preceded it against the punctuation, so
+    the whitespace around the comment closes up with it. Only whitespace at a
+    comment is touched: a hardbreak elsewhere in the line is still two spaces
+    before a newline, and still means what it says.
+    """
     facts = _FACT_RE.findall(source)
-    return _FACT_RE.sub("", source).strip(), facts
+    return _FACT_SPAN.sub(_close_up, source).strip(), facts
+
+
+def _close_up(match: re.Match[str]) -> str:
+    """What a removed citation leaves behind: one space, or nothing."""
+    rest = match.string[match.end() :]
+    if not rest or rest[0] in _CLINGS or match.start() == 0:
+        return ""
+    return " "
 
 
 def _render(tokens: list[Token]) -> str:

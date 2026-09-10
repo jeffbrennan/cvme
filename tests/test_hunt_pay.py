@@ -66,3 +66,23 @@ def test_an_unread_posting_is_falsey_and_prints_a_dash() -> None:
 def test_the_midpoint_is_what_a_sort_compares() -> None:
     assert Pay(low=150_000, high=190_000).midpoint == 170_000
     assert Pay(low=150_000).midpoint == 150_000
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # The Hinge posting, which reported a salary of $10k for two days.
+        (
+            "401(k) Matching: We match 100% of the first 10% of pre-tax "
+            "401(k) contributions you make, up to a maximum of $10,000 per year.",
+            "-",
+        ),
+        ("Annual Learning and Development stipend of $2,000.", "-"),
+        ("Tuition reimbursement up to $5,250 per year.", "-"),
+        # A real range keeps working when the benefits follow it.
+        ("Salary: $150,000-$190,000 per year. We also offer a 401(k).", "$150k-190k"),
+        ("The base salary range for this role is $170,000 to $210,000.", "$170k-210k"),
+    ],
+)
+def test_benefits_are_not_read_as_salary(text: str, expected: str) -> None:
+    assert read(text).short == expected

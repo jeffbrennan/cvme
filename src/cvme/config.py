@@ -53,6 +53,8 @@ class ProjectConfig(BaseModel):
     jobs_dir: Path = Path("jobs")
     applications_dir: Path = Path("applications")
     hunts_dir: Path = Path("hunts")
+    #: Where ``cvme send`` writes untailored copies named for a role.
+    send_dir: Path = Path("send")
     facts: list[Path] = Field(default_factory=list)
 
 
@@ -232,6 +234,7 @@ def load_config(path: Path) -> Config:
     config.project.jobs_dir = _resolve(root, config.project.jobs_dir)
     config.project.applications_dir = _resolve(root, config.project.applications_dir)
     config.project.hunts_dir = _resolve(root, config.project.hunts_dir)
+    config.project.send_dir = _resolve(root, config.project.send_dir)
     config.project.facts = [_resolve(root, f) for f in config.project.facts]
     config.search.database = _resolve(root, config.search.database)
     if config.fit.wants is not None:

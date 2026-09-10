@@ -46,3 +46,30 @@ def test_facts_are_extracted_and_removed() -> None:
     text, facts = extract_facts("claim <!-- fact: m-one --> more <!-- fact: m-two -->")
     assert facts == ["m-one", "m-two"]
     assert "fact:" not in text
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        # The case that put " ," on a rendered page: the citation sits between
+        # the word and its punctuation.
+        ("30+ analysts <!-- fact: m-one -->, covering", "30+ analysts, covering"),
+        ("matched a client <!-- fact: m-one -->; rebuilt", "matched a client; rebuilt"),
+        ("about five minutes <!-- fact: m-one -->.", "about five minutes."),
+        # Mid-sentence, the space is still one space.
+        ("7B rows <!-- fact: m-one --> rewritten", "7B rows rewritten"),
+        # Wrapped across a line, the softbreak supplies the space.
+        ("30 sources <!-- fact: m-one -->\nand more", "30 sources\nand more"),
+        # A leading citation leaves no indent behind.
+        ("<!-- fact: m-one --> claim", "claim"),
+    ],
+)
+def test_removing_a_citation_closes_the_gap(source: str, expected: str) -> None:
+    text, facts = extract_facts(source)
+    assert text == expected
+    assert facts == ["m-one"]
+
+
+def test_a_hardbreak_away_from_a_citation_survives() -> None:
+    text, _ = extract_facts("a claim <!-- fact: m-one --> here  \nnext line")
+    assert text == "a claim here  \nnext line"

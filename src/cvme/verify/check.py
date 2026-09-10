@@ -12,7 +12,7 @@ from pathlib import Path
 
 from cvme.verify.corpus import Corpus
 from cvme.verify.numbers import Claim, ClaimKey, extract
-from cvme.verify.prose import Rule, load_rules
+from cvme.verify.prose import Rule, check_paragraph, load_rules
 from cvme.verify.prose import check_line as check_prose
 from cvme.verify.report import Finding, Report
 
@@ -107,10 +107,19 @@ def verify_text(
     """Check one document's source."""
     rules = load_rules() if rules is None else rules
     findings: list[Finding] = []
+    #: The current paragraph, as (line number, prose) with citations removed.
+    #: Rhetoric that runs across a sentence boundary needs it whole.
+    paragraph: list[tuple[int, str]] = []
 
     for number, line in _body_lines(text):
         if not line.strip():
+            findings += check_paragraph(paragraph, rules)
+            paragraph = []
             continue
+        if line.lstrip().startswith("#"):
+            # A heading ends the paragraph above it and is not part of one.
+            findings += check_paragraph(paragraph, rules)
+            paragraph = []
         fact_ids = _FACT.findall(line)
         prose = _FACT.sub("", line)
 
@@ -127,6 +136,7 @@ def verify_text(
                 )
 
         findings += check_prose(prose, number, rules)
+        paragraph.append((number, prose.strip()))
 
         if check_facts:
             for claim in extract(prose):
@@ -139,6 +149,7 @@ def verify_text(
                 ):
                     findings.append(finding)
 
+    findings += check_paragraph(paragraph, rules)
     findings.sort(key=lambda f: (f.line, f.rule))
     return Report(path=path, findings=findings)
 

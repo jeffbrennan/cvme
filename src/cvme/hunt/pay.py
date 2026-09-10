@@ -45,7 +45,17 @@ _PERIOD = re.compile(
     r"|(hourly|daily|weekly|monthly|yearly|annually|annualized|annualised|annual)",
     re.IGNORECASE,
 )
-_RETIREMENT = re.compile(r"\b40[13][kb]\b", re.IGNORECASE)
+#: ``401k``, ``401(k)``, ``403b``. The parenthesised form is the common one,
+#: so the parentheses are optional rather than absent.
+_RETIREMENT = re.compile(r"\b40[13]\s*\(?[kb]\)?", re.IGNORECASE)
+#: Money a posting names that is not the salary. A benefits figure is written
+#: exactly like pay -- a currency, a magnitude, and a period -- so nothing in
+#: the figure itself tells them apart, only the sentence around it.
+_BENEFIT = re.compile(
+    r"\b40[13]\s*\(?[kb]\)?|\bretirement\b|\bmatch(?:es|ed|ing)?\b"
+    r"|\bstipend\b|\bhsa\b|\bfsa\b|\btuition\b|\breimburse",
+    re.IGNORECASE,
+)
 _PAY_WORD = re.compile(
     r"salar|compensat|\bpay\b|\bpays\b|\bwage|\brate\b|\bbase\b|\bearn",
     re.IGNORECASE,
@@ -62,6 +72,9 @@ _PERIOD_NAMES = {
 
 #: How far either side of a figure to look for the period it is stated in.
 _WINDOW = 30
+#: How far back to look for a benefit phrase. Wider than :data:`_WINDOW`,
+#: because the phrase heads the sentence and the figure ends it.
+_BENEFIT_WINDOW = 140
 
 
 @dataclass(frozen=True)
@@ -165,6 +178,20 @@ def _paid_near(text: str, start: int, end: int) -> bool:
     return _PAY_WORD.search(window) is not None
 
 
+def _benefit_near(text: str, start: int, end: int) -> bool:
+    """Whether a figure is a benefit rather than the salary.
+
+    "up to a maximum of $10,000 per year" is a 401(k) match cap, and it has
+    everything a salary has: a currency, a period, and a plausible magnitude.
+    What separates them is the sentence, so a benefit phrase nearby disqualifies
+    the figure unless a pay word is also there. That exception matters, because
+    a real range often lists the benefits right after it, as in "Salary:
+    $150,000-$190,000, plus a 401(k)".
+    """
+    window = text[max(0, start - _BENEFIT_WINDOW) : end + _WINDOW]
+    return _BENEFIT.search(window) is not None and _PAY_WORD.search(window) is None
+
+
 def _annualise(value: float, period: str) -> int:
     if period:
         return round(value * PERIODS[period])
@@ -198,6 +225,9 @@ def _read_one(text: str) -> Pay:
                 second = following
 
         last = second or first
+        if _benefit_near(text, first.start, last.end):
+            index += 1
+            continue
         period = _period_near(text, first.start, last.end)
         if not (
             first.marked

@@ -190,3 +190,38 @@ def test_json_output_is_machine_readable(corpus: Corpus) -> None:
     payload = json.loads(report.to_json())
     assert payload["findings"]
     assert {"rule", "severity", "message", "line"} <= set(payload["findings"][0])
+
+
+def test_split_antithesis_is_caught_across_a_line_break(corpus: Corpus) -> None:
+    """The figure a line rule cannot see, wrapped the way documents wrap."""
+    report = verify_text(
+        "The hard part of that work is not the API surface. It is deciding\n"
+        "what a gold table owes the application reading it.\n",
+        Path("answers.md"),
+        corpus,
+        check_facts=False,
+    )
+    assert [f.rule for f in report.findings] == ["split-antithesis"]
+    assert report.findings[0].line == 1
+
+
+def test_a_plain_negative_followed_by_a_new_subject_is_left_alone(
+    corpus: Corpus,
+) -> None:
+    report = verify_text(
+        "The migration was not source controlled. Deploys ran from one button.\n",
+        Path("answers.md"),
+        corpus,
+        check_facts=False,
+    )
+    assert report.findings == []
+
+
+def test_a_paragraph_rule_does_not_reach_past_a_blank_line(corpus: Corpus) -> None:
+    report = verify_text(
+        "The estate is not source controlled.\n\nIt is a portal.\n",
+        Path("answers.md"),
+        corpus,
+        check_facts=False,
+    )
+    assert report.findings == []

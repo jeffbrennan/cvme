@@ -18,6 +18,17 @@ message = "the 'not just X, it's Y' construction"
 suggestion = "state what it is, and stop"
 severity = "error"
 
+# The same figure split across two sentences, which the line rule above cannot
+# see because a sentence boundary in a wrapped document is a line boundary too.
+# "The hard part is not the API surface. It is deciding what a gold table owes."
+[[rule]]
+id = "split-antithesis"
+pattern = "\\b(?:is|are|was|were|it's)\\s+not\\s+[^.!?]{3,80}[.!?]\\s+(?:it|that|they|this)\\s+(?:is|are|was|were)\\b"
+message = "'X is not A. It is B.', the same antithesis split in two"
+suggestion = "put the contrast in a subordinate clause, or drop it"
+severity = "error"
+scope = "paragraph"
+
 [[rule]]
 id = "letter-opener"
 pattern = "^\\s*I am writing to\\b"

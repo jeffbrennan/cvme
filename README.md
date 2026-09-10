@@ -74,6 +74,24 @@ uv run cvme render resume
 uv run cvme render cover_letter
 ```
 
+A recruiter who asks for your resume is not a posting: there is nothing to
+tailor to and nothing to file. `cvme send` renders the untailored document once
+per role title, named for the recipient rather than for the project:
+
+```bash
+uv run cvme send 'Senior Data Engineer'
+uv run cvme send 'Data Engineer' 'Senior Data Engineer' 'Staff Data Engineer'
+uv run cvme send 'Data Engineer' --md --dir outbox
+```
+
+Output goes to `project.send_dir` (`send/` by default) as
+`<name>_<normalized_role>.pdf`, using the same title normalisation the hunt
+filenames use: grades and qualifiers are dropped, `Sr.` becomes `senior`, and
+formal levels such as Senior, Staff and Principal are kept. Two titles that
+normalise to one filename are refused rather than silently overwritten. The
+PDF is rendered rather than copied, so a role name never ends up attached to a
+stale render.
+
 Start from a resume you already have. `cvme convert` reads a PDF and writes
 the markdown grammar, so an existing document becomes an editable source file
 in one step:
