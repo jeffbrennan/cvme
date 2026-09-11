@@ -12,11 +12,23 @@ cd my-docs && uv run cvme render resume
 For a standalone install and a workspace outside the source checkout:
 
 ```bash
-uv tool install .            # from this checkout (or `uv tool install cvme` once published)
+uv tool install cvme         # or `uv tool install .` from this checkout
 cvme init ~/Documents/job_hunt/2026
 cd ~/Documents/job_hunt/2026
 cvme render resume
 ```
+
+To drive it from another project — a repo that holds your documents, say —
+add it as a dependency instead:
+
+```bash
+uv add cvme
+uv run cvme render resume
+```
+
+Fonts and Typst templates ship inside the wheel, so a released install needs
+nothing else on the machine. `cvme doctor` reports what it found.
+Publishing is described in [docs/releasing.md](docs/releasing.md).
 
 The generated application bundles live under `applications/` in that
 workspace by default. Set `project.applications_dir` in `cvme.toml` to put them

@@ -1,0 +1,71 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      index:
+        description: Index to publish to
+        type: choice
+        options: [testpypi, pypi]
+        default: testpypi
+
+permissions: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - run: uv build
+
+      # A tag that disagrees with the packaged version ships the wrong release
+      # under the right name, and PyPI never lets a version be reused.
+      - name: Check the tag matches the packaged version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          wheel=$(ls dist/*.whl)
+          built=$(basename "$wheel" | cut -d- -f2)
+          tagged=${GITHUB_REF_NAME#v}
+          if [ "$built" != "$tagged" ]; then
+            echo "tag $GITHUB_REF_NAME carries version $tagged, wheel is $built" >&2
+            exit 1
+          fi
+
+      # Install the wheel the way a user would and run the environment check:
+      # it fails on a missing font or a missing typst, so it catches package
+      # data that never made it into the distribution.
+      - name: Smoke-test the wheel
+        run: |
+          uv venv --python 3.13 /tmp/smoke
+          VIRTUAL_ENV=/tmp/smoke uv pip install dist/*.whl
+          /tmp/smoke/bin/cvme version
+          /tmp/smoke/bin/cvme doctor
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.index == 'testpypi' && 'testpypi' || 'pypi' }}
+    permissions:
+      id-token: write  # trusted publishing; no API token is stored
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: ${{ inputs.index == 'testpypi' && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}
