@@ -56,28 +56,32 @@ def test_scope_and_context_guards():
     assert evaluate(posting("Startup AI platform migration"), p).adjustment == 0
 
 
-def test_adjustment_is_bounded_and_filters_still_win():
+def test_axis_preferences_move_their_axis_and_filters_still_win():
     p = Profile(
-        max_adjustment=10,
         rules=[
-            dict(name="one", weight=30, any_of=["Python"], reason="one"),
-            dict(name="two", weight=30, any_of=["SQL"], reason="two"),
-        ],
+            dict(name="one", weight=30, any_of=["Python"], reason="one", axis="skills"),
+            dict(name="two", weight=-30, any_of=["SQL"], reason="two", axis="domain"),
+        ]
     )
     job = posting("Python SQL")
     base = fit(job, "Python SQL", SearchConfig())
     adjusted = fit(job, "Python SQL", SearchConfig(), wants=p)
-    assert adjusted.alignment_score == base.score
-    assert adjusted.score == min(100, base.score + 10)
     assert adjusted.preferences is not None
-    assert adjusted.preferences.adjustment == 10
+    assert adjusted.preferences.by_axis["skills"] == 30
+    assert adjusted.preferences.by_axis["domain"] == -30
+    assert adjusted.axis("skills") >= base.axis("skills")
+    assert adjusted.axis("domain") < base.axis("domain")
+    # A domain below its gate caps the composite, whatever the other axes say.
+    assert adjusted.axis("domain") < 30
+    assert adjusted.score <= adjusted.axis("domain")
     blocked = fit(
         job, "Python SQL", SearchConfig(excluded_titles=["engineer"]), wants=p
     )
     assert blocked.score == 0 and blocked.band == "blocked"
     text = fit_block(job, adjusted)
     assert "Personal preferences" in text and "posting: Python" in text
-    assert "Alignment" in text and "capped at ±10" in text
+    assert "| axis | signal |" in text
+    assert "skills" in text and "domain" in text
 
 
 def test_config_resolves_profile_and_prose_is_not_a_rule(tmp_path: Path):

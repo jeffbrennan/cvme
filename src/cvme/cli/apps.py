@@ -109,6 +109,10 @@ def _days(count: int) -> str:
 #: set is what fits a terminal and answers "which one tonight".
 COLUMNS: dict[str, Column] = {
     "fit": Column("fit", lambda _, e: _fit(e), justify="right"),
+    "skills": Column("skills", lambda _, e: str(e.skills_score), justify="right"),
+    "role": Column("role", lambda _, e: str(e.role_score), justify="right"),
+    "domain": Column("domain", lambda _, e: str(e.domain_score), justify="right"),
+    "culture": Column("culture", lambda _, e: str(e.culture_score), justify="right"),
     "company": Column("company", lambda _, e: e.company or "unknown"),
     "title": Column("title", lambda _, e: e.title or "unknown", wrap=True),
     "salary": Column("salary", lambda _, e: e.pay.short, justify="right"),
@@ -131,6 +135,8 @@ COLUMNS: dict[str, Column] = {
 #: ``--columns fit,company,title,directory``.
 DEFAULT_COLUMNS = (
     "fit",
+    "domain",
+    "skills",
     "company",
     "title",
     "salary",
@@ -145,7 +151,7 @@ DEFAULT_COLUMNS = (
 #: The order the default set gives way in on a narrow terminal, least useful
 #: first. What is left when this is exhausted is the answer to "which one
 #: tonight", and is never dropped: a table too narrow for it is one to widen.
-DROP_ORDER = ("versions", "status", "where", "age")
+DROP_ORDER = ("culture", "role", "skills", "versions", "status", "where", "age")
 
 #: How wide a wrapping column is allowed to count for when deciding what fits.
 #: A long title wraps rather than pushing another column out of the table.
@@ -312,6 +318,10 @@ def show(
     console.print(f"[bold]{entry.title or 'unknown'}[/bold] at {entry.company}")
     colour = _BANDS.get(entry.band, "white")
     console.print(f"fit [{colour}]{entry.fit}/100 ({entry.band})[/{colour}]")
+    console.print(
+        f"axes: skills {entry.skills_score}, role {entry.role_score}, "
+        f"domain {entry.domain_score}, culture {entry.culture_score}"
+    )
     stated = f" (as stated: {entry.pay.stated})" if entry.pay.stated else ""
     console.print(
         f"pay {entry.pay.short}{stated}"

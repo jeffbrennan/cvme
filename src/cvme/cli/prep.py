@@ -243,14 +243,15 @@ def prep(
     if not posting.description.strip():
         raise ConfigError("no description found; check the input")
 
+    money, culture = conditions(config, posting)
     fit = evaluate_fit(
         posting,
         corpus_text(config, wanted),
         config.search,
         extra_terms=config.fit.extra_terms,
         wants=load_wants(config.fit.wants),
+        culture=culture,
     )
-    money, culture = conditions(config, posting)
     if fit_only:
         _fit_only(posting, fit, money, culture)
         return
@@ -418,6 +419,7 @@ def _record(
             culture=culture,
             arrangement=posting.arrangement,
             note=note,
+            axes=fit.axes,
         )
         store.add_round(
             slug=hunt.slug,

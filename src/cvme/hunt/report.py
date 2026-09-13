@@ -58,6 +58,45 @@ def conditions_block(money: Pay, culture: Culture) -> list[str]:
     return lines
 
 
+#: The axes, in the order they are read: can I do it, is the seat right, is
+#: the cause right, is the week right.
+AXIS_ORDER = ("skills", "role", "domain", "culture")
+
+AXIS_LABEL = {
+    "skills": "skills",
+    "role": "role & logistics",
+    "domain": "domain",
+    "culture": "culture",
+}
+
+
+def _component(fit: Fit, name: str) -> str:
+    for component in fit.components:
+        if component.name == name:
+            return component.detail
+    return ""
+
+
+def _axis_detail(fit: Fit, axis: str) -> str:
+    if axis == "skills":
+        return _component(fit, "skills") or "term overlap"
+    if axis == "role":
+        parts = [
+            f"{name} {earned:.0f}/{possible}"
+            for name, earned, possible in (
+                (c.name, c.earned, c.possible)
+                for c in fit.components
+                if c.name in ("title", "experience", "location")
+            )
+        ]
+        return ", ".join(parts) or "title, experience, location"
+    if axis == "culture":
+        return "the posting's own reading of the hours"
+    if axis == "domain":
+        return "the cause the engineering serves"
+    return ""
+
+
 def fit_block(
     posting: JobPosting, fit: Fit, money: Pay = NO_PAY, culture: Culture = NO_CULTURE
 ) -> str:
@@ -77,14 +116,26 @@ def fit_block(
             *(f"- {reason}" for reason in fit.blockers),
             "",
         ]
+    total_weight = sum(fit.weights.get(axis, 0) for axis in AXIS_ORDER) or 1
     lines += [
-        "| component | earned | of | why |",
+        "| axis | score | weight | what moved it |",
         "|---|---|---|---|",
         *(
-            f"| {c.name} | {c.earned:.0f} | {c.possible} | {c.detail} |"
-            for c in fit.components
+            f"| {AXIS_LABEL[axis]} | {fit.axis(axis)} | "
+            f"{round(100 * fit.weights.get(axis, 0) / total_weight)}% | "
+            f"{_axis_detail(fit, axis)} |"
+            for axis in AXIS_ORDER
         ),
         "",
+    ]
+    if fit.gate_hits:
+        lines += [
+            "A gated axis scored below its floor, which caps the composite: "
+            + "; ".join(fit.gate_hits)
+            + ".",
+            "",
+        ]
+    lines += [
         f"**Answered.** {_terms(fit.matched)}",
         "",
         f"**Not answered.** {_terms(fit.missing)}",
@@ -106,19 +157,20 @@ def fit_block(
         def cell(value: str) -> str:
             return value.replace("|", "\\|").replace("\n", " ")
 
+        by_axis = prefs.by_axis
+        summary = ", ".join(f"{axis} {by_axis.get(axis, 0):+d}" for axis in AXIS_ORDER)
         details = [
             "### Personal preferences",
             "",
-            f"Alignment **{fit.alignment_score}/100**; preference adjustment "
-            f"**{prefs.adjustment:+d}** (capped at ±{prefs.max_adjustment}). "
-            "Overall fit is clamped to 0–100; exclusion filters still hold it at zero.",
+            f"Preference weight by axis: {summary}. Each rule moves the axis it "
+            "is tagged with, and the composite weights those axes.",
             "",
-            "| signal | points | evidence | why it matters to you |",
-            "|---|---|---|---|",
+            "| axis | signal | points | evidence | why it matters to you |",
+            "|---|---|---|---|---|",
             *(
-                f"| {cell(s.name)} | {s.weight:+d} | {cell(s.evidence)} "
-                f"| {cell(s.reason)} |"
-                for s in prefs.signals
+                f"| {signal.axis} | {cell(signal.name)} | {signal.weight:+d} "
+                f"| {cell(signal.evidence)} | {cell(signal.reason)} |"
+                for signal in prefs.signals
             ),
             "",
             "Each rule counts once. Missing mentions describe the captured posting, "

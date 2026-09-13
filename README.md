@@ -233,10 +233,10 @@ hunts/2026/01_northwind-health_staff-data-engineer_2026-01-04/
     apps/
         index.md  every version, and how each differs from the one before
         v1/
-            jeff_brennan_staff_data_engineer.md
-            jeff_brennan_staff_data_engineer.pdf
-            jeff_brennan_staff_data_engineer_cover_letter.md
-            jeff_brennan_staff_data_engineer_cover_letter.pdf
+            morgan_avery_staff_data_engineer.md
+            morgan_avery_staff_data_engineer.pdf
+            morgan_avery_staff_data_engineer_cover_letter.md
+            morgan_avery_staff_data_engineer_cover_letter.pdf
         v2/  # the next version, with the same filenames
 ```
 
@@ -273,17 +273,25 @@ The score is computed, and it shows its working. A model asked to rate a fit
 returns a number that reads well and cannot be checked, which is the failure
 `cvme verify` exists to catch everywhere else.
 
-The posting is read for terms from a packaged vocabulary of tools, practices
-and domains, weighted by how often the posting names each one, and those terms
-are looked for in your fact corpus and base documents. Skills carry 60 points,
-the title 15, the stated years of experience 15, and the location 10. A posting
-your own filters exclude scores zero and says which filter did it. Extend the
-vocabulary for your field under `[fit.extra_terms]` in `cvme.toml`.
+The score has four axes, each out of 100 and reported on its own. **Skills** is
+the posting's terms from a packaged vocabulary of tools, practices and domains,
+weighted by how often the posting names each one and looked for in your fact
+corpus and base documents. **Role and logistics** is the title, the stated years
+of experience, and the location. **Culture** is the posting's own reading of the
+hours. **Domain** is the cause the engineering serves: it starts neutral at 50
+and your preferences move it up or down. A weighted composite ranks the posting,
+and a gated axis caps it, so a wrong domain or a bad week cannot be carried by a
+strong skills match. Extend the vocabulary for your field under
+`[fit.extra_terms]` in `cvme.toml`. A posting your own filters exclude scores
+zero and says which filter did it.
 
 #### Personal preferences: WANTS.md
 
-Skills fit answers “can I do this job?” Add a preferences file to also score
-“do I want this job?” Configure it explicitly (relative to `cvme.toml`):
+The axes answer four questions: skills asks whether the work is doable, role
+whether the seat is right, domain whose cause the engineering serves, and
+culture whether the week is shaped the way you want. Every preference rule is
+tagged with the axis it moves. Add a preferences file to configure them
+(relative to `cvme.toml`):
 
 ```toml
 [fit]
@@ -296,25 +304,45 @@ Markdown notes for the written company/role assessment. For example:
 ```yaml
 ---
 version: 1
-max_adjustment: 40
+weights:
+  skills: 35
+  role: 20
+  domain: 35
+  culture: 10
+gate:
+  domain: 30
+  culture: 25
 rules:
   - name: Modern platform not mentioned
     weight: -8
+    axis: role
     when: absent
     any_of: [Databricks, Snowflake]
     reason: Prefer a modern data platform; confirm the stack if unstated.
   - name: Platform ownership
     weight: 8
+    axis: role
     any_of: [platform engineering, data platform, developer experience]
     reason: I want to build infrastructure other engineers use.
+  - name: Mission-driven domain
+    weight: 12
+    axis: domain
+    any_of: [climate, renewable energy, clean energy, decarbonization]
+    reason: Favour the causes you want to serve; the same list scores theirs against you.
+  - name: Grind culture cues
+    weight: -18
+    axis: culture
+    any_of: [intense urgency, thrive under pressure, whatever it takes]
+    reason: I want a calmer week, and volunteering this language is the tell.
   - name: AI startup
     weight: -15
+    axis: domain
     any_of: [AI platform, AI-powered]
     requires_any: [startup, early stage, venture backed]
     reason: Prefer organizations with a longer operating history.
 ---
 # What I want next
-Established healthcare organizations, platform ownership, and CI/CD.
+A calm, product-focused team, platform ownership, and honest hours.
 Ask about testing standards and the balance of maintenance vs. new work.
 ```
 
@@ -323,6 +351,7 @@ Each rule needs a unique `name`, nonzero integer `weight` (-40 to +40),
 
 | field | default | meaning |
 |---|---|---|
+| `axis` | `role` | Which axis the weight moves: `skills`, `role`, `culture`, or `domain` |
 | `when` | `present` | `present`: any phrase appears; `absent`: none appears |
 | `scope` | `posting` | Match `company`, `title`, `description`, or all three |
 | `requires_any` | `[]` | If supplied, at least one of these phrases must also appear |
@@ -336,14 +365,20 @@ guards help, but phrase rules do not infer an employer's industry, age, or
 engineering quality. Prefer specific industry phrases over incidental words
 like “finance,” and scope named-employer preferences to `company`.
 
-`cvme prep` (including `--fit-only`) adds the summed preference adjustment,
-capped at ±`max_adjustment` (default 40), to the existing alignment score and
-clamps the result to 0–100. Exclusion filters still force zero. Reports show
-alignment, the adjustment, and every matched rule with its phrases and reason.
-The stored application fit and its band use this overall score. Work-life
-remains a separate assessment; `digest` discovery/filter scores are unchanged.
-With no configured file, scoring behaves as before. A configured missing or
-invalid file raises an error rather than silently dropping your preferences.
+`cvme prep` (including `--fit-only`) scores each axis, then ranks the posting by
+a weighted composite of them. The `weights` table sets the composite, normalised
+by their sum (defaults 35/20/35/10 for skills/role/domain/culture). A `gate`
+entry caps the composite at an axis's own score when that axis falls below its
+floor (defaults: domain 30, culture 25), so a strong skills match cannot rescue
+a posting whose domain or hours you are avoiding. Exclusion filters still force
+zero. Reports show every axis, its weight, the gates that fired, and every
+matched rule with its phrases, reason, and axis. The stored application carries
+the composite and the four axis scores, and `cvme apps list` can sort by any of
+`fit`, `skills`, `role`, `domain`, or `culture`. `max_adjustment` is accepted
+for older files but is no longer what decides the ranking. With no configured
+file, every posting is scored on the axes with no preference weights. A
+configured missing or invalid file raises an error rather than silently dropping
+your preferences.
 
 Only the report prompt receives WANTS notes. They never enter the skills
 corpus, verification evidence, or resume/cover-letter prompts. Do not add
@@ -356,16 +391,16 @@ requirements your corpus answers, and which it does not.
 ```
 **Fit 58/100 (fair)**
 
-| component | earned | of | why |
+| axis | score | weight | what moved it |
 |---|---|---|---|
-| skills | 30 | 60 | 7/14 terms, weighted by mention count |
-| title | 15 | 15 | matches 'data engineer' |
-| experience | 15 | 15 | asks 6y, corpus evidences 7y |
-| location | 5 | 10 | no preferred locations set |
+| skills | 50 | 35% | 7/14 terms, weighted by mention count |
+| role & logistics | 88 | 20% | title 15/15, experience 15/15, location 5/10 |
+| domain | 62 | 35% | the cause the engineering serves |
+| culture | 50 | 10% | the posting's own reading of the hours |
 
-**Answered.** databricks (2), airflow, data quality, kubernetes, python, sql
+**Answered.** airflow, data quality, docker, kubernetes, python, spark, sql
 
-**Not answered.** claims (2), delta lake, healthcare, pyspark, rust, terraform
+**Not answered.** go, kafka, rust, scala, snowflake, terraform, typescript
 
 **Pay** $150k-190k (as stated: $150,000 - $190,000 per year)
 
@@ -392,7 +427,7 @@ a family" and "unlimited PTO", is not the one to spend the evening on.
 Pay is annualised so the column compares: a range, a single figure, or an
 hourly rate all become one number, and the words it was read from are kept
 beside it. A figure is only believed where the posting marks it as money, so
-"5+ years" and "10,000 patients per year" are not read as salaries.
+"5+ years" and "10,000 records per year" are not read as salaries.
 
 The work-life score is the same argument as the fit score. Asking a model what
 a company is like to work at produces an answer worth nothing; what can be
@@ -447,22 +482,23 @@ cvme apps status northwind rejected
 
 ```
 prepared, not yet sent, by fit
-    fit   company             title                   salary       work-life  where   age  status    v
- 89 strong Acme Analytics      Senior Data Engineer             -    0 grind  onsite   6d  prepared  2
- 82 strong Mount Sinai         Senior Data Engineer             -   unstated  hybrid   4d  prepared  1
- 81 strong Hypergrowth Labs    Founding Data Engineer  $140k-170k    0 grind  hybrid   2d  prepared  1
- 78 strong Northwind Health    Staff Data Engineer     $185k-215k  100 calm   remote   1d  prepared  1
+    fit domain skills company             title                   salary       work-life  where   age  status    v
+ 89 strong     77     82 Acme Analytics      Senior Data Engineer             -    0 grind  onsite   6d  prepared  2
+ 82 strong     62     71 Globex              Senior Data Engineer             -   unstated  hybrid   4d  prepared  1
+ 81 strong     62     69 Hypergrowth Labs    Founding Data Engineer  $140k-170k    0 grind  hybrid   2d  prepared  1
+ 78 strong     77     64 Northwind Health    Staff Data Engineer     $185k-215k  100 calm   remote   1d  prepared  1
 
 4 prepared  median pay 200k of 2 stated  mean work-life 33 of 3 stated
 ```
 
 `--sort` takes `fit`, `salary`, `wlb`, `age` (longest sitting first), `waiting`
-(longest since it was sent), `updated`, `company`, `title`, `status` and
-`versions`; `--reverse` flips whichever it is. `--columns` picks and orders the
-cells, from `fit, company, title, salary, wlb, age, waiting, status, versions,
-where, location, note, slug, url, directory`. Where the terminal is too narrow
-to hold the default set, the rightmost columns are dropped rather than every
-column squeezed, and the listing says which.
+(longest since it was sent), `updated`, `company`, `title`, `status`,
+`versions`, and the axes `skills`, `role`, `domain` and `culture`; `--reverse`
+flips whichever it is. `--columns` picks and orders the cells, from
+`fit, skills, role, domain, culture, company, title, salary, wlb, age, waiting,
+status, versions, where, location, note, slug, url, directory`. Where the
+terminal is too narrow to hold the default set, the rightmost columns are
+dropped rather than every column squeezed, and the listing says which.
 
 `cvme apps rescan` re-reads each captured `posting.md` for pay and hours and
 updates the table -- after the lexicon changes, or for applications prepared

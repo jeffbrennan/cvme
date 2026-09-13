@@ -133,3 +133,38 @@ def test_bands_follow_the_score() -> None:
 
 def test_normalise_keeps_the_characters_that_name_things() -> None:
     assert normalise("C#, C++ and .NET!") == ["c#", "c++", "and", "net"]
+
+
+def test_the_fit_carries_four_axes_and_a_weighted_composite() -> None:
+    fit = evaluate(posting("python, sql, spark, databricks"), CORPUS, SearchConfig())
+    assert set(fit.axes) == {"skills", "role", "domain", "culture"}
+    assert fit.weights and fit.gate
+    assert 0 <= fit.score <= 100
+
+
+def test_a_gated_axis_caps_the_composite() -> None:
+    from cvme.hunt.wants import Profile
+
+    wants = Profile(
+        rules=[
+            dict(
+                name="bad domain",
+                weight=-40,
+                reason="outside my domains",
+                any_of=["python"],
+                axis="domain",
+            )
+        ]
+    )
+    fit = evaluate(posting("python, sql, spark"), CORPUS, SearchConfig(), wants=wants)
+    assert fit.axis("domain") == 10
+    assert fit.gate_hits
+    assert fit.score <= fit.axis("domain")
+
+
+def test_the_culture_axis_uses_the_postings_own_reading() -> None:
+    from cvme.hunt.culture import evaluate as read_culture
+
+    culture = read_culture("unlimited PTO and a 996 culture")
+    fit = evaluate(posting("python"), CORPUS, SearchConfig(), culture=culture)
+    assert fit.axis("culture") == culture.score

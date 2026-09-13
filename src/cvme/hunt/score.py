@@ -18,13 +18,28 @@ import tomllib
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from cvme.config import SearchConfig
-from cvme.hunt.wants import Preferences, Profile
+from cvme.hunt.wants import (
+    AXES,
+    DEFAULT_GATE,
+    DEFAULT_WEIGHTS,
+    Preferences,
+    Profile,
+)
 from cvme.hunt.wants import evaluate as evaluate_wants
 from cvme.jobs.models import JobPosting
 
+if TYPE_CHECKING:
+    from cvme.hunt.culture import Culture
+
 LEXICON_PATH = Path(__file__).parent / "lexicon.toml"
+
+#: Where domain sits when the posting says nothing about the cause it serves.
+#: Not a compliment: domain rules move it up for care work and down for the
+#: industries being avoided.
+DOMAIN_BASELINE = 50
 
 _NON_WORD = re.compile(r"[^a-z0-9+#]+")
 _YEARS = re.compile(
@@ -64,14 +79,17 @@ class Component:
 
 @dataclass(frozen=True)
 class Fit:
-    """A score out of 100 and everything that produced it."""
+    """A composite out of 100, the axes under it, and everything that moved them."""
 
     score: int
     components: list[Component] = field(default_factory=list)
     requirements: list[Requirement] = field(default_factory=list)
     blockers: list[str] = field(default_factory=list)
-    alignment_score: int | None = None
     preferences: Preferences | None = None
+    axes: dict[str, int] = field(default_factory=dict)
+    weights: dict[str, int] = field(default_factory=dict)
+    gate: dict[str, int] = field(default_factory=dict)
+    gate_hits: list[str] = field(default_factory=list)
 
     @property
     def band(self) -> str:
@@ -92,6 +110,17 @@ class Fit:
     @property
     def missing(self) -> list[Requirement]:
         return [r for r in self.requirements if not r.covered]
+
+    def axis(self, name: str) -> int:
+        return self.axes.get(name, 0)
+
+
+def _clamp(value: float) -> int:
+    return max(0, min(100, round(value)))
+
+
+def _ratio(earned: float, possible: int) -> int:
+    return round(100 * earned / possible) if possible else 0
 
 
 def load_lexicon(extra: dict[str, list[str]] | None = None) -> dict[str, list[str]]:
@@ -242,8 +271,20 @@ def evaluate(
     *,
     extra_terms: dict[str, list[str]] | None = None,
     wants: Profile | None = None,
+    culture: Culture | None = None,
 ) -> Fit:
-    """Score one posting against the text of everything you can claim."""
+    """Score one posting against the text of everything you can claim.
+
+    Four axes are scored 0-100 and reported on their own. Skills is the
+    weighted term overlap; role is the title, experience and location
+    components plus role preferences; culture is the posting's own reading of
+    the hours plus culture preferences; domain starts neutral and moves on the
+    cause the engineering serves. A weighted composite ranks the posting, and
+    a gated axis caps it, so a wrong domain cannot be carried by a strong
+    skills match.
+    """
+    from cvme.hunt.culture import BASELINE as CULTURE_BASELINE
+
     lexicon = load_lexicon(extra_terms)
     category_of = categories()
     asked = mentions(f"{posting.title}\n{posting.description}", lexicon)
@@ -275,20 +316,46 @@ def evaluate(
             "skills", possible / 2, possible, "no known terms in the posting"
         )
 
-    components = [
-        skills,
-        _title_component(posting, search),
-        _experience_component(posting, corpus),
-        _location_component(posting, search),
-    ]
-    blockers = _blockers(posting, search)
-    total = 0 if blockers else round(sum(c.earned for c in components))
+    title = _title_component(posting, search)
+    experience = _experience_component(posting, corpus)
+    location = _location_component(posting, search)
+    components = [skills, title, experience, location]
+
     preferences = evaluate_wants(posting, wants) if wants is not None else None
-    overall = (
-        max(0, min(100, total + preferences.adjustment))
-        if preferences is not None and not blockers
-        else total
+    by_axis = preferences.by_axis if preferences is not None else dict.fromkeys(AXES, 0)
+    weights = dict(wants.weights) if wants is not None else dict(DEFAULT_WEIGHTS)
+    gate = dict(wants.gate) if wants is not None else dict(DEFAULT_GATE)
+
+    logistics_earned = title.earned + experience.earned + location.earned
+    logistics_possible = title.possible + experience.possible + location.possible
+    culture_base = culture.score if culture is not None else CULTURE_BASELINE
+    axes = {
+        "skills": _clamp(_ratio(skills.earned, skills.possible) + by_axis["skills"]),
+        "role": _clamp(_ratio(logistics_earned, logistics_possible) + by_axis["role"]),
+        "culture": _clamp(culture_base + by_axis["culture"]),
+        "domain": _clamp(DOMAIN_BASELINE + by_axis["domain"]),
+    }
+
+    blockers = _blockers(posting, search)
+    total_weight = sum(weights.get(axis, 0) for axis in AXES) or 1
+    composite = round(
+        sum(weights.get(axis, 0) * axes[axis] for axis in AXES) / total_weight
     )
+    gate_hits: list[str] = []
+    if not blockers:
+        for axis, floor in gate.items():
+            if axes.get(axis, 0) < floor:
+                composite = min(composite, axes[axis])
+                gate_hits.append(f"{axis} {axes[axis]} below {floor}")
+    score = 0 if blockers else max(0, min(100, composite))
     return Fit(
-        int(overall), components, requirements, blockers, int(total), preferences
+        score,
+        components,
+        requirements,
+        blockers,
+        preferences,
+        axes,
+        weights,
+        gate,
+        gate_hits,
     )

@@ -32,6 +32,10 @@ ADDED_COLUMNS = (
     ("wlb_band", "TEXT NOT NULL DEFAULT ''"),
     ("wlb_signals", "TEXT NOT NULL DEFAULT ''"),
     ("arrangement", "TEXT NOT NULL DEFAULT ''"),
+    ("skills", "INTEGER NOT NULL DEFAULT 0"),
+    ("role", "INTEGER NOT NULL DEFAULT 0"),
+    ("domain", "INTEGER NOT NULL DEFAULT 0"),
+    ("culture", "INTEGER NOT NULL DEFAULT 0"),
 )
 
 #: What ``--sort`` accepts, and the columns each key orders by. Sorting is
@@ -42,6 +46,10 @@ ORDERS: dict[str, tuple[tuple[str, bool], ...]] = {
     "fit": (("fit", True), ("updated_at", True)),
     "salary": (("salary_high", True), ("salary_low", True)),
     "wlb": (("wlb", True), ("fit", True)),
+    "skills": (("skills", True), ("fit", True)),
+    "role": (("role", True), ("fit", True)),
+    "domain": (("domain", True), ("fit", True)),
+    "culture": (("culture", True), ("fit", True)),
     "age": (("created_at", False),),
     # Never sent is not "waiting longest", so those rows go to the end
     # whatever the dates say.
@@ -90,6 +98,10 @@ class Application:
     wlb_band: str = ""
     wlb_signals: str = ""
     arrangement: str = ""
+    skills_score: int = 0
+    role_score: int = 0
+    domain_score: int = 0
+    culture_score: int = 0
 
     @property
     def path(self) -> Path:
@@ -191,8 +203,10 @@ class ApplicationStore:
         culture: Culture = NO_CULTURE,
         arrangement: str = "",
         note: str = "",
+        axes: dict[str, int] | None = None,
     ) -> None:
         """Insert or refresh one application, keeping its status and dates."""
+        scores = axes or {}
         now = datetime.now(UTC).isoformat(timespec="seconds")
         self.connection.execute(
             """
@@ -200,9 +214,11 @@ class ApplicationStore:
                 (slug, year, url, company, title, location, directory, fit, band,
                  status, rounds, created_at, updated_at, note,
                  salary_low, salary_high, salary_period, salary_currency,
-                 salary_text, wlb, wlb_band, wlb_signals, arrangement)
+                 salary_text, wlb, wlb_band, wlb_signals, arrangement,
+                 skills, role, domain, culture)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?)
             ON CONFLICT(slug) DO UPDATE SET
                 url = excluded.url,
                 company = excluded.company,
@@ -222,7 +238,11 @@ class ApplicationStore:
                 wlb = excluded.wlb,
                 wlb_band = excluded.wlb_band,
                 wlb_signals = excluded.wlb_signals,
-                arrangement = excluded.arrangement
+                arrangement = excluded.arrangement,
+                skills = excluded.skills,
+                role = excluded.role,
+                domain = excluded.domain,
+                culture = excluded.culture
             """,
             (
                 slug,
@@ -240,6 +260,10 @@ class ApplicationStore:
                 now,
                 note,
                 *_conditions(pay, culture, arrangement),
+                scores.get("skills", 0),
+                scores.get("role", 0),
+                scores.get("domain", 0),
+                scores.get("culture", 0),
             ),
         )
         self.connection.commit()
@@ -451,4 +475,8 @@ def _application(row: sqlite3.Row) -> Application:
         wlb_band=row["wlb_band"],
         wlb_signals=row["wlb_signals"],
         arrangement=row["arrangement"],
+        skills_score=row["skills"],
+        role_score=row["role"],
+        domain_score=row["domain"],
+        culture_score=row["culture"],
     )

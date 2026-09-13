@@ -402,7 +402,10 @@ def test_wants_adjusts_fit_only_and_is_kept_out_of_skill_evidence(project: Path)
     result = prep(project, "--fit-only")
     assert result.exit_code == 0, result.output
     assert "Platform preference" in result.output
-    assert "**-12**" in result.output
+    assert "| -12 |" in result.output
+    assert "Preference weight by axis: skills +0, role -12, domain +0, culture +0" in (
+        result.output
+    )
     assert "posting: Databricks" in result.output
     # Wanting Rust never makes it an answered requirement.
     unanswered = result.output.split("**Not answered.**")[1].splitlines()[0]
