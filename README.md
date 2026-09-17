@@ -34,26 +34,6 @@ The generated application bundles live under `applications/` in that
 workspace by default. Set `project.applications_dir` in `cvme.toml` to put them
 elsewhere; absolute paths and paths relative to the config file both work.
 
-## Status
-
-Under construction, milestone by milestone. See
-[docs/implementation-plan.md](docs/implementation-plan.md).
-
-| Milestone | State |
-|---|---|
-| M0 — scaffold, tooling, CI, `cvme doctor` | done |
-| M1 — markdown grammar, parser, Typst renderer, `cvme render` | done |
-| M2 — page autofit, machine-readable output, cover letters | done |
-| M2b — project config, `cvme init` | done |
-| M3 — fact corpus and the `cvme verify` guardrails | done |
-| M4 — job capture: ATS APIs, JSON-LD, manual paths | public HTTP + manual implemented; LinkedIn live-tested; browser pending |
-| M5 — agent-driven tailoring | done |
-| M7 — `cvme convert`: an existing PDF resume back into markdown | done |
-| M8 — `cvme ats`: check the rendered PDF the way a parser reads it | done |
-| M9 — `cvme prep` and `cvme apps`: one directory per posting, tracked | done |
-| M10 — pay and work-life read from the posting, sortable in `cvme apps` | done |
-| M11 — `cvme linkedin`: one-way sync, audited against the live profile | done; applied by paste, since LinkedIn's write API is partner-only |
-
 ## Design
 
 Markdown is the authoring surface. It parses to a typed intermediate
@@ -144,9 +124,8 @@ Both LinkedIn postings [1000000001](https://www.linkedin.com/jobs/view/100000000
 and [1000000002](https://www.linkedin.com/jobs/view/1000000002/) were fetched
 successfully through public HTTP on 2026-09-05. Recorded job-bearing HTML
 fragments cover their descriptions, metadata, salaries, and cache reuse in
-offline tests. Sites may still require login or challenge completion;
-automatic browser capture remains pending, so use saved HTML or pasted text
-when public HTTP cannot retrieve the posting.
+offline tests. Sites may still require login or challenge completion; use
+saved HTML or pasted text when public HTTP cannot retrieve the posting.
 
 Search LinkedIn and Indeed in bulk and digest only postings not seen before:
 
@@ -634,9 +613,10 @@ cvme linkedin record     # mark the current documents as applied
 cvme linkedin status
 ```
 
-Because the paste is manual, `cvme linkedin check` audits the result against
-what LinkedIn actually holds and exits non-zero on drift, so it works as a CI
-or cron check.
+The paste is manual, because LinkedIn's Profile Edit API is partner-only and
+driving a browser to write a profile would violate its terms. `cvme linkedin
+check` audits the result against what LinkedIn actually holds and exits
+non-zero on drift, so it works as a CI or cron check.
 
 ```bash
 cvme linkedin check ~/Downloads/Profile.pdf   # More > Save to PDF: one click
@@ -645,20 +625,19 @@ cvme linkedin check <source> --record         # record what LinkedIn says
 cvme linkedin check <source> --show           # print what cvme read, and stop
 ```
 
-The quick way is your profile's own **More > Save to PDF**, which downloads
-immediately; cvme already reads PDF resumes, so it is the `cvme convert`
-pipeline pointed at a different document. The data export (Settings & Privacy
-> Data Privacy > Get a copy of your data) takes a few minutes and is the one
-that can vouch for your skills list -- the PDF prints only "Top Skills", so it
-declines to check them and says so rather than reporting the rest as missing.
-
 Findings are `missing` (in your documents, not on LinkedIn), `stale` (on
 LinkedIn, out of date) or `extra` (on LinkedIn, not in your documents). The
 first two fail; `extra` only fails under `--strict`, because a resume drops an
 old job for space and the profile keeping it is not drift.
 
-There is also an opt-in browser capture, which reads your own profile from a
-local Chromium you are signed in to:
+An optional `linkedin.md` beside the resume carries the longer copy a profile
+has room for. It is a patch, not a second resume: write only what should read
+differently, and everything else comes from `base.md`;
+`base/linkedin.md.example` is a template to rename.
+
+The opt-in browser capture reads your own signed-in profile instead of a PDF.
+**LinkedIn's user agreement prohibits automated access and does not carve out
+your own profile, so the account risk is yours to opt into.**
 
 ```bash
 uv sync --extra browser && uv run playwright install chromium
@@ -666,61 +645,9 @@ cvme linkedin login            # a window opens; you sign in
 cvme linkedin check --browser
 ```
 
-**LinkedIn's user agreement prohibits automated access and does not carve out
-your own profile, so this is yours to opt into and the account risk is yours.**
-cvme keeps it honest rather than quiet: the browser is visible, you type your
-own credentials and clear your own MFA, there is no detection evasion of any
-kind, and the session reads the profile LinkedIn resolves for your account and
-refuses anything else. `cvme linkedin logout` deletes the stored session.
-
-A capture reports a status per section -- `complete`, `empty`, `partial`,
-`unavailable` -- and only the first two can support "missing from LinkedIn". A
-timeout says "could not check". `cvme linkedin capture` prints what was
-recovered, which is how you check the selectors against the real page.
-
-**Anonymous fetching of other people's pages stays absent.** *hiQ Labs v.
-LinkedIn* ended in 2022 with a $500,000 judgment against hiQ for breaching the
-user agreement and an injunction to delete what it had taken -- the well-known
-ruling that scraping public pages is not a *CFAA* crime left the contract claim
-untouched, and LinkedIn won that one.
-
-The changeset is a file you paste from: every changed field, in the order
-LinkedIn's editor presents them, with the new text in a fenced block and where
-in the UI it goes. The first run lists everything, since cvme has not recorded
-a profile yet; after `record`, only what moved.
-
-**There is no automated push, and cannot be.** LinkedIn's Profile Edit API is
-the only way to write a profile section, and it is restricted to
-partner-approved developers. The self-serve tier grants `openid`, `profile`,
-`email` and `w_member_social`, none of which writes a profile section. Driving
-a logged-in browser instead would violate LinkedIn's terms, so cvme does the
-part that is actually hard -- knowing what changed -- and leaves the pasting to
-you.
-
-A profile has no page to fit, so an optional `linkedin.md` beside the resume
-carries the longer copy. It is a patch, not a second resume: write only the
-sections and entries that should read differently, and everything else comes
-from `base.md`. It needs no configuration -- the file being there is what turns
-it on, and `base/linkedin.md.example` is a template to rename.
-
-```markdown
----
-headline: Staff Data Engineer | Streaming platforms | Python, Spark, Databricks
----
-
-## Experience
-
-### Staff Data Engineer @ Northwind Analytics | Jul 2023 – Present
-
-- Every bullet the page could not fit, up to LinkedIn's 2,000 characters
-```
-
-Entries match on role, organisation and start date, so an overlay keeps
-matching the day "Present" becomes a real end date.
-
-Over-long fields are refused rather than truncated, and sections cvme has no
-LinkedIn field for are reported rather than dropped. The full design and the
-mapping table are in [docs/linkedin-sync.md](docs/linkedin-sync.md).
+The full design -- the changeset format, per-section capture status, what each
+source vouches for, and the mapping table -- is in
+[docs/linkedin-sync.md](docs/linkedin-sync.md).
 
 ## Guardrails
 

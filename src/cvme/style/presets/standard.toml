@@ -1,5 +1,4 @@
-# The default. Matches the measured reference layout in
-# docs/implementation-plan.md §12.
+# The default. Matches the measured reference layout.
 [style]
 paper = "us-letter"
 margin_x = 57.6          # 0.8in

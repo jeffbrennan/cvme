@@ -1,6 +1,6 @@
 """Proof-of-concept for the cvme rendering engine.
 
-Validates the load-bearing assumptions of docs/implementation-plan.md §1.1:
+Validates the load-bearing assumptions of the rendering engine:
 
 * typst-py compiles from an in-memory ``dict[str, bytes]`` virtual filesystem,
   so no temp directory is needed;
