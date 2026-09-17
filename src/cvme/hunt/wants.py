@@ -21,23 +21,25 @@ from cvme.errors import ConfigError
 from cvme.jobs.models import JobPosting
 
 #: The axes a preference can score. Skills asks whether the work is doable,
-#: role what the seat is, culture how the week is shaped, and domain whose
-#: cause the engineering serves.
-Axis = Literal["skills", "role", "culture", "domain"]
+#: role what the seat is, culture how the week is shaped, domain whose cause
+#: the engineering serves, and stability whether the employer is built to last.
+Axis = Literal["skills", "role", "culture", "domain", "stability"]
 AXES: tuple[str, ...] = get_args(Axis)
 
 #: Axis weights for the composite, out of 100. Skills and domain lead because
 #: they are the two that decide whether an application is worth an evening.
+#: The sum need not be 100; the composite normalises by the total.
 DEFAULT_WEIGHTS: dict[str, int] = {
-    "skills": 35,
-    "role": 20,
-    "domain": 35,
+    "skills": 30,
+    "role": 15,
+    "domain": 30,
     "culture": 10,
+    "stability": 15,
 }
 
 #: Axes with a floor. A score below its floor caps the composite at that score,
 #: so a posting that is wrong where it matters cannot be carried by the rest.
-DEFAULT_GATE: dict[str, int] = {"domain": 30, "culture": 25}
+DEFAULT_GATE: dict[str, int] = {"domain": 30, "culture": 25, "stability": 25}
 
 
 class Rule(BaseModel):

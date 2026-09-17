@@ -17,6 +17,7 @@ from cvme.cli.job import app as job_app
 from cvme.cli.linkedin import app as linkedin_app
 from cvme.cli.prep import prep
 from cvme.cli.render import render
+from cvme.cli.research import research
 from cvme.cli.send import send
 from cvme.cli.tailor import tailor
 from cvme.cli.verify import verify
@@ -36,6 +37,7 @@ app.command()(handled(ats))
 app.command()(digest)
 app.command()(tailor)
 app.command()(prep)
+app.command()(research)
 app.add_typer(job_app, name="job")
 app.add_typer(apps_app, name="apps")
 app.add_typer(linkedin_app, name="linkedin")

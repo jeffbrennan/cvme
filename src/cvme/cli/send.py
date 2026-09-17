@@ -3,7 +3,7 @@
 A recruiter who asks for "your resume" is not a posting: there is no title to
 tailor to and no hunt to file the result under. What they get is the base
 document as it stands, named for the role they are hiring for, so that what
-lands in their inbox is `jeff_brennan_senior_data_engineer.pdf` rather than
+lands in their inbox is `morgan_avery_senior_data_engineer.pdf` rather than
 `base.pdf`.
 
 The PDF is rendered rather than copied, so a name never gets attached to a

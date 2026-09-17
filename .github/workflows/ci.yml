@@ -23,3 +23,12 @@ jobs:
       - run: uv run ruff check .
       - run: uv run pyrefly check
       - run: uv run pytest
+
+      # Fail the build on an email that is not a reserved example domain, or on
+      # any term in the private list. The list is a repository secret so the
+      # public repo never contains the words it forbids; without it the generic
+      # patterns still run.
+      - name: Check for personal data
+        env:
+          CVME_PRIVATE_TERMS: ${{ secrets.CVME_PRIVATE_TERMS }}
+        run: uv run --no-project python scripts/check_private.py

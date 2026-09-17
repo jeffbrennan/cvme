@@ -34,7 +34,7 @@ from cvme.generate.bundle import build
 from cvme.generate.naming import filenames
 from cvme.generate.produce import Produced, generate, produce, write_prompt
 from cvme.hunt import culture as culture_lexicon
-from cvme.hunt import index, layout, pay, report
+from cvme.hunt import index, layout, pay, report, stability
 from cvme.hunt.culture import Culture
 from cvme.hunt.pay import Pay
 from cvme.hunt.score import Fit
@@ -244,6 +244,11 @@ def prep(
         raise ConfigError("no description found; check the input")
 
     money, culture = conditions(config, posting)
+    researched = stability.load(
+        config.stability.dir,
+        posting.company,
+        **config.stability.scoring(),
+    )
     fit = evaluate_fit(
         posting,
         corpus_text(config, wanted),
@@ -251,7 +256,20 @@ def prep(
         extra_terms=config.fit.extra_terms,
         wants=load_wants(config.fit.wants),
         culture=culture,
+        stability=researched,
     )
+    if researched is None or not researched.known:
+        typer.echo(
+            "  stability not researched; run 'cvme research "
+            f"{posting.company or '<company>'}' to score it"
+        )
+    elif (age := stability.age_days(researched)) is not None and (
+        age > config.stability.max_age_days
+    ):
+        typer.echo(
+            f"  stability dossier is {age} days old; "
+            "'cvme research --refresh' would update it"
+        )
     if fit_only:
         _fit_only(posting, fit, money, culture)
         return

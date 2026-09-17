@@ -49,6 +49,14 @@ jobs:
           /tmp/smoke/bin/cvme version
           /tmp/smoke/bin/cvme doctor
 
+      # The sdist and wheel are exactly what PyPI will keep forever, so scan
+      # the built artifacts themselves and fail before upload. This cannot be
+      # bypassed by editing the include list or by a stray file on disk.
+      - name: Scan the artifacts for personal data
+        env:
+          CVME_PRIVATE_TERMS: ${{ secrets.CVME_PRIVATE_TERMS }}
+        run: python3 scripts/check_private.py --archive dist/*
+
       - uses: actions/upload-artifact@v4
         with:
           name: dist

@@ -278,6 +278,99 @@ def test_no_cache_refetches(tmp_path: Path) -> None:
     assert len(calls) == 2
 
 
+# --- bot challenges -------------------------------------------------------
+
+
+CHALLENGE_PAGE = (
+    "<!DOCTYPE html><html><head><title>Just a moment...</title>"
+    '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script>'
+    "</head><body></body></html>"
+)
+
+
+def test_a_cloudflare_challenge_falls_back_to_impersonation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(403, text=CHALLENGE_PAGE)
+
+    seen: list[tuple[str, str]] = []
+
+    def fake(url: str, impersonate: str) -> tuple[int, str]:
+        seen.append((url, impersonate))
+        return 200, fixture("jsonld_page.html")
+
+    monkeypatch.setattr(sources, "_impersonated_get", fake)
+
+    posting = _fetcher(tmp_path, handler).fetch("https://hiringcafe.com/job/acme-1")
+    assert posting.tier == "jsonld"
+    assert posting.source == "hiringcafe"
+    assert posting.title == "Staff Data Engineer"
+    assert seen == [("https://hiringcafe.com/job/acme-1", "chrome120")]
+
+
+def test_a_served_page_never_reaches_the_fallback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=fixture("jsonld_page.html"))
+
+    def fail(*args: object, **kwargs: object) -> tuple[int, str]:
+        raise AssertionError("impersonation should not run")
+
+    monkeypatch.setattr(sources, "_impersonated_get", fail)
+    _fetcher(tmp_path, handler).fetch("https://example.test/careers/1")
+
+
+def test_the_fallback_tries_the_next_profile(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(403, text=CHALLENGE_PAGE)
+
+    seen: list[str] = []
+
+    def fake(url: str, impersonate: str) -> tuple[int, str]:
+        seen.append(impersonate)
+        if impersonate == "chrome120":
+            return 403, CHALLENGE_PAGE
+        return 200, fixture("jsonld_page.html")
+
+    monkeypatch.setattr(sources, "_impersonated_get", fake)
+    posting = _fetcher(tmp_path, handler).fetch("https://hiringcafe.com/job/acme-1")
+    assert posting.title == "Staff Data Engineer"
+    assert seen == ["chrome120", "safari17_0"]
+
+
+def test_a_failed_fallback_names_the_manual_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(403, text=CHALLENGE_PAGE)
+
+    monkeypatch.setattr(sources, "_impersonated_get", lambda *a: (403, CHALLENGE_PAGE))
+    url = "https://hiringcafe.com/job/acme-1"
+    with pytest.raises(FetchError) as excinfo:
+        _fetcher(tmp_path, handler).fetch(url)
+    assert "cvme job add --html" in str(excinfo.value)
+    assert url in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    ("status", "body", "expected"),
+    [
+        (403, CHALLENGE_PAGE, True),
+        (503, "cf_chl_opt", True),
+        (200, "https://challenges.cloudflare.com/turnstile", True),
+        (403, "<h1>Forbidden</h1>", False),
+        (200, fixture("jsonld_page.html"), False),
+        (404, CHALLENGE_PAGE, False),
+    ],
+)
+def test_challenge_detection(status: int, body: str, expected: bool) -> None:
+    assert sources._looks_like_challenge(status, body) is expected
+
+
 # --- output ---------------------------------------------------------------
 
 
@@ -329,20 +422,20 @@ def test_write_lands_in_the_jobs_directory(tmp_path: Path) -> None:
     ("job_id", "title", "company", "tier", "employment", "phrase"),
     [
         (
-            "4453268982",
-            "Data Engineer III - Digital and Technology Partners - Hybrid/Remote",
-            "Mount Sinai Health System",
+            "1000000001",
+            "Data Engineer III - Enterprise Data - Hybrid/Remote",
+            "Northwind Health System",
             "jsonld",
             "FULL_TIME",
-            "150 E 42nd Street",
+            "100 Example Street",
         ),
         (
-            "4457172708",
+            "1000000002",
             "Specialist Data Engineer",
-            "Metropolitan Transportation Authority",
+            "Regional Transit Authority",
             "site:html",
             "Other",
-            "$114,070 - $134,641",
+            "$115,000 - $135,000",
         ),
     ],
 )
@@ -411,8 +504,8 @@ def test_jsonld_preserves_escaped_examples_inside_real_html() -> None:
 @pytest.mark.parametrize(
     ("job_id", "salary", "bounds"),
     [
-        ("4453268982", "$109000 - $163695 per year", (109000, 163695)),
-        ("4457172708", "$114,070 - $134,641", (114070, 134641)),
+        ("1000000001", "$110000 - $165000 per year", (110000, 165000)),
+        ("1000000002", "$115,000 - $135,000", (115000, 135000)),
     ],
 )
 def test_linkedin_salary_survives_capture_and_roundtrip(

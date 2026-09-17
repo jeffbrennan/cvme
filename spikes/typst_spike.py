@@ -24,12 +24,12 @@ from typing import Any
 import typst
 
 DATA: dict[str, Any] = {
-    "name": "Jeff Brennan",
+    "name": "Morgan Avery",
     "contact": [
-        "jeffbrennan10@gmail.com",
-        "jeffbrennan.dev",
-        "github.com/jeffbrennan",
-        "Boston, MA",
+        "morgan.avery@example.com",
+        "morganavery.example",
+        "github.com/morganavery",
+        "Springfield, IL",
     ],
     "sections": [
         {
@@ -38,7 +38,7 @@ DATA: dict[str, Any] = {
                 {
                     "org": "Acme Data",
                     "role": "Senior Data Engineer",
-                    "loc": "Boston, MA",
+                    "loc": "Springfield, IL",
                     "dates": "Jan 2023 - Present",
                     "bullets": [
                         "Rebuilt the ingestion path in *PySpark*, cutting the "

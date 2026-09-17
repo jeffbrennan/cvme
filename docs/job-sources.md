@@ -8,16 +8,42 @@ environment. Public HTTP now works for the two LinkedIn URLs tested with
 
 | Posting | Extractor | Captured salary |
 |---|---|---|
-| [Mount Sinai, Data Engineer III](https://www.linkedin.com/jobs/view/4453268982/) | JSON-LD, with an entity-escaped HTML description | $109000 - $163695 per year |
-| [MTA, Specialist Data Engineer](https://www.linkedin.com/jobs/view/4457172708/) | Public HTML selectors; no JobPosting JSON-LD | $114,070 - $134,641 |
+| [Northwind Health, Data Engineer III](https://www.linkedin.com/jobs/view/1000000001/) | JSON-LD, with an entity-escaped HTML description | $110000 - $165000 per year |
+| [Regional Transit Authority, Specialist Data Engineer](https://www.linkedin.com/jobs/view/1000000002/) | Public HTML selectors; no JobPosting JSON-LD | $115,000 - $135,000 per year |
 
 These results supersede the inference below that anonymous LinkedIn capture
 is probably dead; they do not establish availability for every posting.
 Recorded fixtures retain job-bearing fragments and omit unrelated page chrome
 and tracking. The tests verify live-response parsing, saved-page parsing,
-salary extraction, metadata, Markdown round trips, and cache reuse.
-Browser automation is still pending. ATS and Indeed paths retain their
-existing offline coverage; this verification only exercised LinkedIn live.
+salary extraction, metadata, Markdown round trips, and cache reuse. Browser
+automation is still pending. ATS and Indeed paths retain their existing offline
+coverage; this verification only exercised LinkedIn live.
+
+## Bot challenges (2026-09-13)
+
+Some aggregators sit behind a Cloudflare managed challenge and answer the
+honest `cvme` user-agent with `403` and a "Just a moment..." interstitial:
+the whole site, every route, whatever headers are sent. [HiringCafe](https://hiringcafe.com)
+is one, and its postings carry a proper `JobPosting` JSON-LD, so the blocker
+is the fetch and nothing else.
+
+When a response looks like a challenge, the fetcher retries the same URL
+through `curl_cffi`'s browser TLS profiles, `chrome120` then `safari17_0`
+(order deliberate: 120 passes where newer fingerprints do not). The page this
+returns is the page a browser is served, and the existing JSON-LD extractor
+parses it unchanged. The tier is reported as `jsonld` with the real source
+name; a challenge that cannot be passed falls through to the same
+save-or-paste message as any other failed fetch. One profile answered
+HiringCafe during the verification: `chrome124` returned `403` and `chrome120`
+returned the posting.
+
+This is a deliberate posture question rather than a technical one. It does not
+solve a challenge, plant a cookie, or spoof a human: it shapes the TLS and
+header fingerprint like the browser already looking at the page. It is closer
+to reading the page a browser would get than to the vendored mobile API key
+this project declined, but it is still presenting as something the request is
+not, and it is recorded here so that choice stays visible.
+
 
 ## Original research
 
@@ -127,6 +153,10 @@ narrow thing.
 
 Replaces §6 of the implementation plan.
 
+These are extraction tiers. Underneath them the fetch itself retries a bot
+challenge through browser TLS profiles (see *Bot challenges* above), and the
+tiers below run on whatever HTML that returns.
+
 0. **ATS API**, when the URL is or resolves to Greenhouse, Lever or Ashby.
 1. **JSON-LD** from whatever HTML we hold.
 2. **Site-specific HTML parse**, selectors in `selectors.toml` as data.
@@ -147,6 +177,11 @@ Replaces §6 of the implementation plan.
   cvme holding their password.
 - **Do not build search.** One URL at a time is the whole requirement, and it
   keeps the tool on the right side of the volume question.
+- **Impersonate the browser TLS profile, do not drive one.** For a
+  Cloudflare-challenged aggregator the retry is `curl_cffi`'s fingerprint
+  rather than Playwright: one request, no browser install, and it returns the
+  page a browser would be served. The browser tier stays for sites that need a
+  signed-in session.
 
 ## A constraint on building this here
 

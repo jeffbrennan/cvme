@@ -71,7 +71,7 @@ def test_the_midpoint_is_what_a_sort_compares() -> None:
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        # The Hinge posting, which reported a salary of $10k for two days.
+        # A posting that reported a salary of $10k for two days.
         (
             "401(k) Matching: We match 100% of the first 10% of pre-tax "
             "401(k) contributions you make, up to a maximum of $10,000 per year.",

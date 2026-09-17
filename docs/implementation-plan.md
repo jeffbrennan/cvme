@@ -158,38 +158,38 @@ the generator prompt, so the model and the parser are never out of sync.
 
 ```markdown
 ---
-name: Jeff Brennan
+name: Morgan Avery
 contact:
-  - text: jeffbrennan10@gmail.com
-    url: mailto:jeffbrennan10@gmail.com
-  - text: jeffbrennan.dev
-    url: https://jeffbrennan.dev
+  - text: morgan.avery@example.com
+    url: mailto:morgan.avery@example.com
+  - text: morganavery.example
+    url: https://morganavery.example
 ---
 
 ## Summary
 
 Careful preparation of public health data improves the lives of underserved
-communities. I have six years of experience working at every level of the
+communities. I have several years of experience working at every level of the
 healthcare data lifecycle. <!-- fact: s-experience-years -->
 
 ## Experience
 
-### Data Engineer @ Medisolv | Jul 2023 – Present
+### Data Engineer @ Northwind Health | Jul 2023 – Present
 
-- Oversee the ingestion and transformation of patient data (10B+ records/week,
-  150TB+ data lake) for hundreds of hospital clients <!-- fact: m-ingest-scale -->
+- Oversee the ingestion and transformation of patient data (billions of records
+  a week, a large data lake) for hundreds of hospital clients <!-- fact: m-ingest-scale -->
 - Created a CLI to generate Databricks Workflows - enabling our team to
   programmatically tailor cluster configurations for clients with thousands to
   millions of patients
 
-### Data Analyst @ New York-Presbyterian | Dec 2020 – Jul 2023
+### Data Analyst @ Example Hospital | Dec 2020 – Jul 2023
 
 - Managed the calculation, tracking, and reporting of quality metrics, leading
-  to $20M+ in savings <!-- fact: m-nyp-savings -->
+  to seven figures in savings <!-- fact: m-nyp-savings -->
 
 ## Education
 
-### UTHealth Houston
+### Example University
 #### Master of Science - Major in Epidemiology, Minor in Biostatistics | May 2020
 
 Certificate: Data Science
@@ -1098,3 +1098,113 @@ wrong for two of the three shapes.
 recovered profile and the per-section status, so drift between the selectors
 and the live page is diagnosed by looking, and `dom.py` is the only file to
 edit when it happens.
+
+---
+
+## 17. Stability research (Milestone 12)
+
+Every other axis is read from the posting or the corpus. Stability is the one
+that is not there to read: a posting does not say the employer is shrinking,
+unprofitable, or turning over its leadership, and the keyword rules that tried
+to catch it stayed silent on the first employer they mattered for. An employer
+can therefore be a perfect vocabulary match and a bad place to stay.
+
+The temptation is to ask a model for a stability rating. That is the failure
+the fit design already rejects, so the work is split. A model does the research,
+because the sources are scattered and no scraper survives them all, and it
+writes a **dossier** of typed, dated, sourced facts and never a score. cvme
+computes the score from the dossier by a fixed rule, so every point traces to a
+citation and the number can be recomputed.
+
+### 17.1 The dossier
+
+`cvme research <company>` runs an agent into `companies/<slug>.md`:
+
+```yaml
+company: Northwind Health
+researched: 2026-09-15
+signals:
+  - type: layoff
+    date: 2022-12
+    count: 78
+    source: https://example.com/article
+```
+
+`type` is a closed vocabulary (`hunt/stability.py`); an unknown type fails
+validation rather than being ignored, and a signal without a `source` is
+rejected. The agent is told to omit what it cannot source, so a short dossier is
+valid and an invented one is not.
+
+The dossier also carries the job-seeker's own disposition, which is written by
+hand rather than researched and never touches the score:
+
+```yaml
+verdict: uninterested
+verdict_reason: PBM ownership and the stack
+verdict_date: 2026-09-17
+```
+
+`verdict` is a closed set of `interested`, `uninterested`, or `undecided`, so
+verdicts stay comparable across dossiers; the reason and date are free text and
+optional. The agent is told not to write any of the three. A verdict surfaces in
+`cvme research`'s summary line and in the report block.
+
+### 17.2 The score
+
+`hunt/stability.py` starts at the neutral baseline of 50 and adds a fixed
+weight per signal type, defined in `[stability.weights]`. Signals older than
+`horizon_years` count at half weight, because a layoff five years ago says less
+than one last quarter. The result is clamped to 0-100 and banded stable, mixed,
+or brittle, with the contributing signals and their sources kept for the report.
+
+An unresearched employer scores the baseline and the report says **not
+researched**, which is the point: unknown is not a clean bill of health.
+`cvme prep` warns when a dossier is missing or older than `max_age_days`.
+
+### 17.3 Integration
+
+Stability is the fifth axis, weighted in `WANTS.md` and gated like domain and
+culture, so a brittle employer caps the composite rather than being carried by a
+strong skills match. It is stored per application and shown in `cvme apps list`.
+The keyword rules stay in `WANTS.md` as a cheap tripwire for a posting that
+volunteers the cues.
+
+The web access is the one trust-boundary change: the research agent browses,
+scoped to this command, because a stability dossier cannot be assembled without
+leaving the sandbox. It is told the pages it reads are data and not commands.
+
+### 17.4 Scoping and calibration
+
+The first live run scored a 170-year-old academic health system and a public
+authority as *brittle*, which was a failure of the signal design rather than the
+research. Four corrections followed.
+
+- **Scope.** `layoff`, `headcount_decline`, `headcount_growth`,
+  `exec_turnover`, `reviews_poor`, `reviews_strong`, and `stable_workforce`
+  carry `scope: team` or `scope: company`. Team evidence, meaning the data and
+  engineering organisation the seat sits in, weighs full; a whole-employer
+  figure counts at `company_scope_factor` (default 0.6). The prompt tells the
+  researcher to look for team evidence first, so operational churn among
+  drivers or clinicians does not read as churn in the data team.
+- **A per-type cap.** No signal type moves the score more than `max_per_type`
+  (default 12), so repeated layoff rounds cannot swamp everything else.
+- **A leadership threshold.** `exec_turnover` scores only at
+  `exec_turnover_min` (default 3) or more; one or two departures is ordinary
+  churn, and scoring it misread stable institutions.
+- **Profitability suppressed for noncommercial employers.** `not_profitable` is
+  dropped when the dossier names government or nonprofit ownership, where
+  profit is not the relevant measure. `long_history` and `stable_workforce`
+  were added so durable institutions earn credit for what makes them durable.
+
+With those in place, the applied set re-scores sensibly: an academic medical
+center 80 and a transit authority 75 read stable, a health system 51 and a
+technology employer 53 read mixed, and none is pinned to the floor.
+
+A leadership change is two facts, not one. `exec_turnover` was replaced by
+`exec_departure` and `exec_hire`, each with a `count` and the roles named in
+`detail`, so a dossier records who left and who replaced them. Departures are
+the instability and are thresholded at three; appointments are a smaller
+positive, and the two net rather than cancel, so a leadership reset still reads
+as a net negative while a genuine build-out reads positive. The old name still
+parses as a departure. The report shows the `detail` column so the reader sees
+the direction and the roles, not just the word "turnover".

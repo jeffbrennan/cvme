@@ -36,6 +36,7 @@ ADDED_COLUMNS = (
     ("role", "INTEGER NOT NULL DEFAULT 0"),
     ("domain", "INTEGER NOT NULL DEFAULT 0"),
     ("culture", "INTEGER NOT NULL DEFAULT 0"),
+    ("stability", "INTEGER NOT NULL DEFAULT 0"),
 )
 
 #: What ``--sort`` accepts, and the columns each key orders by. Sorting is
@@ -50,6 +51,7 @@ ORDERS: dict[str, tuple[tuple[str, bool], ...]] = {
     "role": (("role", True), ("fit", True)),
     "domain": (("domain", True), ("fit", True)),
     "culture": (("culture", True), ("fit", True)),
+    "stability": (("stability", True), ("fit", True)),
     "age": (("created_at", False),),
     # Never sent is not "waiting longest", so those rows go to the end
     # whatever the dates say.
@@ -102,6 +104,7 @@ class Application:
     role_score: int = 0
     domain_score: int = 0
     culture_score: int = 0
+    stability_score: int = 0
 
     @property
     def path(self) -> Path:
@@ -215,10 +218,10 @@ class ApplicationStore:
                  status, rounds, created_at, updated_at, note,
                  salary_low, salary_high, salary_period, salary_currency,
                  salary_text, wlb, wlb_band, wlb_signals, arrangement,
-                 skills, role, domain, culture)
+                 skills, role, domain, culture, stability)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?)
+                    ?, ?, ?, ?, ?)
             ON CONFLICT(slug) DO UPDATE SET
                 url = excluded.url,
                 company = excluded.company,
@@ -264,6 +267,7 @@ class ApplicationStore:
                 scores.get("role", 0),
                 scores.get("domain", 0),
                 scores.get("culture", 0),
+                scores.get("stability", 0),
             ),
         )
         self.connection.commit()
@@ -479,4 +483,5 @@ def _application(row: sqlite3.Row) -> Application:
         role_score=row["role"],
         domain_score=row["domain"],
         culture_score=row["culture"],
+        stability_score=row["stability"],
     )

@@ -140,8 +140,8 @@ converted to Markdown. If JSON-LD has no salary, capture reads the range and
 any stated pay period from the description into `salary`; an explicit
 structured salary takes precedence.
 
-Both LinkedIn postings [4453268982](https://www.linkedin.com/jobs/view/4453268982/)
-and [4457172708](https://www.linkedin.com/jobs/view/4457172708/) were fetched
+Both LinkedIn postings [1000000001](https://www.linkedin.com/jobs/view/1000000001/)
+and [1000000002](https://www.linkedin.com/jobs/view/1000000002/) were fetched
 successfully through public HTTP on 2026-09-05. Recorded job-bearing HTML
 fragments cover their descriptions, metadata, salaries, and cache reuse in
 offline tests. Sites may still require login or challenge completion;
@@ -763,3 +763,24 @@ run in a temporary staging directory containing only the assembled prompt, and
 their draft is copied to the application directory only after the process exits.
 The same holds for the report: the agent sees the posting, the corpus, and
 nothing else, and it has no network access to check anything it recalls.
+
+## Repository content
+
+This is a public tool and its packaging is public too. Every example in the
+repository, the docs, and the tests is synthetic: `example.com` contacts,
+invented employers such as Northwind Health, and placeholder names such as
+Morgan Avery. Real documents, contact details, and captured source material are
+never kept here, because a published version cannot be unpublished and a commit
+cannot be unshared.
+
+Two mechanisms keep that true:
+
+- **The sdist is narrow.** It contains only `src/`, `README.md`, and `LICENSE`.
+  Design docs and test fixtures are development material and are not packaged.
+- **A scan fails the build.** `scripts/check_private.py` reports an email that
+  is not a reserved example domain, and any term in a private list. CI runs it
+  on every change, and the release workflow runs it against the built sdist and
+  wheel before upload, so nothing reaches an index unscanned. The list is
+  supplied through the `CVME_PRIVATE_TERMS` repository secret, which keeps the
+  public repository from containing the words it forbids; without it the
+  generic patterns still run.

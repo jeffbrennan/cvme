@@ -59,14 +59,15 @@ def conditions_block(money: Pay, culture: Culture) -> list[str]:
 
 
 #: The axes, in the order they are read: can I do it, is the seat right, is
-#: the cause right, is the week right.
-AXIS_ORDER = ("skills", "role", "domain", "culture")
+#: the cause right, is the week right, is the employer built to last.
+AXIS_ORDER = ("skills", "role", "domain", "culture", "stability")
 
 AXIS_LABEL = {
     "skills": "skills",
     "role": "role & logistics",
     "domain": "domain",
     "culture": "culture",
+    "stability": "stability",
 }
 
 
@@ -94,7 +95,58 @@ def _axis_detail(fit: Fit, axis: str) -> str:
         return "the posting's own reading of the hours"
     if axis == "domain":
         return "the cause the engineering serves"
+    if axis == "stability":
+        return "researched employer stability" if fit.stability else "not researched"
     return ""
+
+
+def _cell(value: str) -> str:
+    """Make a value safe inside a markdown table cell."""
+    return value.replace("|", "\\|").replace("\n", " ")
+
+
+def stability_block(fit: Fit) -> list[str]:
+    """The researched stability signals, with the source behind each one.
+
+    Stability is the one axis the posting cannot carry, so the block states
+    plainly when nothing has been researched rather than letting a neutral
+    baseline read as a clean bill of health.
+    """
+    stability = fit.stability
+    if stability is None or not stability.known:
+        return [
+            "**Employer stability not researched.** Run `cvme research` for this "
+            "company to score it. An unresearched employer sits at the neutral "
+            "baseline, which is not evidence of stability.",
+            "",
+        ]
+    lines = [
+        f"**Employer stability {stability.score}/100 ({stability.band})**, "
+        f"researched {stability.researched}.",
+        "",
+    ]
+    if stability.verdict:
+        reason = f" {stability.verdict_reason}" if stability.verdict_reason else ""
+        lines += [f"**Verdict {stability.verdict}.**{reason}", ""]
+    if not stability.signals:
+        lines += ["The dossier records no weighted signals.", ""]
+        return lines
+    count = len(stability.signals)
+    sources = len(stability.sources)
+    lines += [
+        "| signal | worth | detail | source |",
+        "|---|---|---|---|",
+        *(
+            f"| {signal.type} | {signal.points:+d} | {_cell(signal.detail)} | "
+            f"{_cell(signal.source)} |"
+            for signal in stability.signals
+        ),
+        "",
+        f"Scored from {count} cited signal{'s' * (count != 1)} across "
+        f"{sources} source{'s' * (sources != 1)}.",
+        "",
+    ]
+    return lines
 
 
 def fit_block(
@@ -145,6 +197,7 @@ def fit_block(
         "the posting said it.",
         "",
         *conditions_block(money, culture),
+        *stability_block(fit),
         "Everything above this line is computed from the posting; everything "
         "below it was written.",
         "",

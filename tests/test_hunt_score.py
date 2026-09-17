@@ -135,9 +135,9 @@ def test_normalise_keeps_the_characters_that_name_things() -> None:
     assert normalise("C#, C++ and .NET!") == ["c#", "c++", "and", "net"]
 
 
-def test_the_fit_carries_four_axes_and_a_weighted_composite() -> None:
+def test_the_fit_carries_five_axes_and_a_weighted_composite() -> None:
     fit = evaluate(posting("python, sql, spark, databricks"), CORPUS, SearchConfig())
-    assert set(fit.axes) == {"skills", "role", "domain", "culture"}
+    assert set(fit.axes) == {"skills", "role", "domain", "culture", "stability"}
     assert fit.weights and fit.gate
     assert 0 <= fit.score <= 100
 

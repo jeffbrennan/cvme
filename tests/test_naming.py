@@ -10,7 +10,7 @@ from cvme.hunt.layout import next_round
     ("title", "expected"),
     [
         (
-            "Data Engineer III - Digital and Technology Partners - Hybrid/Remote",
+            "Data Engineer III - Enterprise Data - Hybrid/Remote",
             "data_engineer",
         ),
         ("Specialist Data Engineer", "data_engineer"),
@@ -27,7 +27,7 @@ def test_normalized_role_title(title: str, expected: str) -> None:
 
 
 def test_name_cannot_create_a_path() -> None:
-    assert token("Jeff Brennan") == "jeff_brennan"
+    assert token("Morgan Avery") == "morgan_avery"
     assert token("../../José O\u2019Brien") == "jose_obrien"
 
 

@@ -113,6 +113,9 @@ COLUMNS: dict[str, Column] = {
     "role": Column("role", lambda _, e: str(e.role_score), justify="right"),
     "domain": Column("domain", lambda _, e: str(e.domain_score), justify="right"),
     "culture": Column("culture", lambda _, e: str(e.culture_score), justify="right"),
+    "stability": Column(
+        "stability", lambda _, e: str(e.stability_score), justify="right"
+    ),
     "company": Column("company", lambda _, e: e.company or "unknown"),
     "title": Column("title", lambda _, e: e.title or "unknown", wrap=True),
     "salary": Column("salary", lambda _, e: e.pay.short, justify="right"),
@@ -137,6 +140,7 @@ DEFAULT_COLUMNS = (
     "fit",
     "domain",
     "skills",
+    "stability",
     "company",
     "title",
     "salary",
@@ -151,7 +155,16 @@ DEFAULT_COLUMNS = (
 #: The order the default set gives way in on a narrow terminal, least useful
 #: first. What is left when this is exhausted is the answer to "which one
 #: tonight", and is never dropped: a table too narrow for it is one to widen.
-DROP_ORDER = ("culture", "role", "skills", "versions", "status", "where", "age")
+DROP_ORDER = (
+    "stability",
+    "culture",
+    "role",
+    "skills",
+    "versions",
+    "status",
+    "where",
+    "age",
+)
 
 #: How wide a wrapping column is allowed to count for when deciding what fits.
 #: A long title wraps rather than pushing another column out of the table.
@@ -320,7 +333,8 @@ def show(
     console.print(f"fit [{colour}]{entry.fit}/100 ({entry.band})[/{colour}]")
     console.print(
         f"axes: skills {entry.skills_score}, role {entry.role_score}, "
-        f"domain {entry.domain_score}, culture {entry.culture_score}"
+        f"domain {entry.domain_score}, culture {entry.culture_score}, "
+        f"stability {entry.stability_score}"
     )
     stated = f" (as stated: {entry.pay.stated})" if entry.pay.stated else ""
     console.print(

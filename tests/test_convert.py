@@ -98,12 +98,12 @@ def test_spaces_are_rebuilt_when_the_pdf_has_no_space_glyphs() -> None:
     """Word emits positioned glyphs and no spaces; the gaps are the spaces."""
     chars = []
     x = 57.6
-    for word in ("Data", "Engineer", "at", "Medisolv"):
+    for word in ("Data", "Engineer", "at", "Northwind"):
         for letter in word:
             chars.append(_char(letter, x))
             x += 5.0  # glyphs within a word butt up against each other
         x += 2.5  # a Calibri space at 11pt
-    assert _runs(chars, [])[0].text == "Data Engineer at Medisolv"
+    assert _runs(chars, [])[0].text == "Data Engineer at Northwind"
 
 
 def test_kerning_inside_a_word_is_not_read_as_a_space() -> None:

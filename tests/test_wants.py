@@ -43,11 +43,12 @@ def test_missing_platform_is_one_penalty_and_blank_capture_is_unknown():
 
 
 def test_scope_and_context_guards():
-    p = profile(any_of=["NYU Langone"], scope="company")
+    p = profile(any_of=["Northwind Health"], scope="company")
     assert (
-        evaluate(posting("Our customer is NYU Langone", "Startup"), p).adjustment == 0
+        evaluate(posting("Our customer is Northwind Health", "Startup"), p).adjustment
+        == 0
     )
-    assert evaluate(posting("Python", "NYU Langone Health"), p).adjustment == 8
+    assert evaluate(posting("Python", "Northwind Health"), p).adjustment == 8
     p = profile(
         any_of=["AI platform"], requires_any=["startup"], unless_any=["migration"]
     )

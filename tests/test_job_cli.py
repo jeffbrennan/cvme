@@ -120,9 +120,9 @@ def test_saved_linkedin_html_preserves_metadata(tmp_path: Path) -> None:
             "job",
             "add",
             "--html",
-            str(JOBS / "linkedin_4457172708.html"),
+            str(JOBS / "linkedin_1000000002.html"),
             "--url",
-            "https://www.linkedin.com/jobs/view/4457172708/",
+            "https://www.linkedin.com/jobs/view/1000000002/",
             "--out",
             str(tmp_path),
         ],
@@ -132,6 +132,6 @@ def test_saved_linkedin_html_preserves_metadata(tmp_path: Path) -> None:
 
     posting = read(next(tmp_path.glob("*.md")))
     assert posting.title == "Specialist Data Engineer"
-    assert posting.company == "Metropolitan Transportation Authority"
+    assert posting.company == "Regional Transit Authority"
     assert posting.tier == "manual:site:html"
-    assert "$114,070 - $134,641" in posting.description
+    assert "$115,000 - $135,000" in posting.description

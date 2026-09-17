@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from cvme.config import SearchConfig
+from cvme.hunt.stability import BASELINE as STABILITY_BASELINE
 from cvme.hunt.wants import (
     AXES,
     DEFAULT_GATE,
@@ -33,6 +34,7 @@ from cvme.jobs.models import JobPosting
 
 if TYPE_CHECKING:
     from cvme.hunt.culture import Culture
+    from cvme.hunt.stability import Stability
 
 LEXICON_PATH = Path(__file__).parent / "lexicon.toml"
 
@@ -90,6 +92,7 @@ class Fit:
     weights: dict[str, int] = field(default_factory=dict)
     gate: dict[str, int] = field(default_factory=dict)
     gate_hits: list[str] = field(default_factory=list)
+    stability: Stability | None = None
 
     @property
     def band(self) -> str:
@@ -272,6 +275,7 @@ def evaluate(
     extra_terms: dict[str, list[str]] | None = None,
     wants: Profile | None = None,
     culture: Culture | None = None,
+    stability: Stability | None = None,
 ) -> Fit:
     """Score one posting against the text of everything you can claim.
 
@@ -334,6 +338,10 @@ def evaluate(
         "role": _clamp(_ratio(logistics_earned, logistics_possible) + by_axis["role"]),
         "culture": _clamp(culture_base + by_axis["culture"]),
         "domain": _clamp(DOMAIN_BASELINE + by_axis["domain"]),
+        "stability": _clamp(
+            (stability.score if stability is not None else STABILITY_BASELINE)
+            + by_axis["stability"]
+        ),
     }
 
     blockers = _blockers(posting, search)
@@ -358,4 +366,5 @@ def evaluate(
         weights,
         gate,
         gate_hits,
+        stability,
     )

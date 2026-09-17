@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
-from typing import Any, Literal, get_args
+from typing import Any, Literal, TypedDict, get_args
 
 from pydantic import BaseModel, Field
 
@@ -26,6 +26,16 @@ CONFIG_NAME = "cvme.toml"
 
 #: The parts of a LinkedIn profile cvme knows how to write.
 SyncField = Literal["headline", "summary", "positions", "educations", "skills"]
+
+
+class StabilityScoring(TypedDict):
+    """Keyword arguments :func:`cvme.hunt.stability.load` accepts."""
+
+    weights: dict[str, int]
+    horizon: int
+    max_per_type: int
+    exec_turnover_min: int
+    company_scope_factor: float
 
 
 class DocumentConfig(BaseModel):
@@ -102,6 +112,45 @@ class FitConfig(BaseModel):
     extra_terms: dict[str, list[str]] = Field(default_factory=dict)
     #: Optional Markdown preferences, kept outside the evidence corpus.
     wants: Path | None = None
+
+
+class StabilityConfig(BaseModel):
+    """Employer stability, researched by an agent and scored from the dossier.
+
+    The posting never carries these signals, so stability is not read off the
+    text. An agent researches a company into ``dir`` and the score is computed
+    from that dossier; the agent never emits a number itself.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    #: Where one dossier per company lives, named for the company.
+    dir: Path = Path("companies")
+    #: Agent to run for ``cvme research``. Empty falls back to
+    #: ``generate.agent``.
+    agent: str = ""
+    #: A dossier older than this is reported as stale.
+    max_age_days: int = Field(default=180, ge=1)
+    #: Signals older than this many years count at half weight.
+    horizon_years: int = Field(default=3, ge=1)
+    #: No single signal type may move the score more than this.
+    max_per_type: int = Field(default=12, ge=1, le=50)
+    #: Leadership departures below this count are ordinary churn, not a signal.
+    exec_turnover_min: int = Field(default=3, ge=1)
+    #: What a whole-company figure is worth against a team-scoped one.
+    company_scope_factor: float = Field(default=0.6, gt=0, le=1)
+    #: Per-project overrides of the packaged signal weights.
+    weights: dict[str, int] = Field(default_factory=dict)
+
+    def scoring(self) -> StabilityScoring:
+        """The keywords :func:`cvme.hunt.stability.load` expects."""
+        return StabilityScoring(
+            weights=self.weights,
+            horizon=self.horizon_years,
+            max_per_type=self.max_per_type,
+            exec_turnover_min=self.exec_turnover_min,
+            company_scope_factor=self.company_scope_factor,
+        )
 
 
 class CultureConfig(BaseModel):
@@ -182,6 +231,7 @@ class Config(BaseModel):
     fit: FitConfig = Field(default_factory=FitConfig)
     accent: AccentConfig = Field(default_factory=AccentConfig)
     culture: CultureConfig = Field(default_factory=CultureConfig)
+    stability: StabilityConfig = Field(default_factory=StabilityConfig)
     linkedin: LinkedInConfig = Field(default_factory=LinkedInConfig)
     #: Raw [agents.<name>] tables, layered over the packaged defaults at use.
     agents: dict[str, dict[str, Any]] = Field(default_factory=dict)
@@ -236,6 +286,7 @@ def load_config(path: Path) -> Config:
     config.project.hunts_dir = _resolve(root, config.project.hunts_dir)
     config.project.send_dir = _resolve(root, config.project.send_dir)
     config.project.facts = [_resolve(root, f) for f in config.project.facts]
+    config.stability.dir = _resolve(root, config.stability.dir)
     config.search.database = _resolve(root, config.search.database)
     if config.fit.wants is not None:
         config.fit.wants = _resolve(root, config.fit.wants)
